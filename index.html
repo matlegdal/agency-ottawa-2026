@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI For Accountability Hackathon</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    :root {
+      --primary: #1a365d;
+      --primary-light: #2b6cb0;
+      --accent: #e53e3e;
+      --accent-light: #fc8181;
+      --bg: #f7fafc;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #2d3748;
+      --text-muted: #718096;
+      --code-bg: #1a202c;
+      --code-text: #e2e8f0;
+      --success: #38a169;
+      --warning: #d69e2e;
+      --tab-cra: #9b2c2c;
+      --tab-fed: #2c5282;
+      --tab-ab: #276749;
+      --tab-general: #744210;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+    /* Header */
+    header { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: white; padding: 48px 0 36px; text-align: center; }
+    header h1 { font-size: 2.4rem; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.5px; }
+    header .subtitle { font-size: 1.15rem; opacity: 0.85; max-width: 700px; margin: 0 auto; }
+    header .badge { display: inline-block; background: rgba(255,255,255,0.15); padding: 4px 14px; border-radius: 20px; font-size: 0.85rem; margin-top: 16px; }
+
+    /* Navigation */
+    .nav-bar { background: var(--card); border-bottom: 2px solid var(--border); position: sticky; top: 0; z-index: 100; }
+    .nav-tabs { display: flex; gap: 0; list-style: none; overflow-x: auto; }
+    .nav-tabs li { flex-shrink: 0; }
+    .nav-tabs button { padding: 14px 22px; border: none; background: none; cursor: pointer; font-size: 0.95rem; font-weight: 500; color: var(--text-muted); border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
+    .nav-tabs button:hover { color: var(--text); background: var(--bg); }
+    .nav-tabs button.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+    .nav-tabs button.active[data-color="cra"] { color: var(--tab-cra); border-bottom-color: var(--tab-cra); }
+    .nav-tabs button.active[data-color="fed"] { color: var(--tab-fed); border-bottom-color: var(--tab-fed); }
+    .nav-tabs button.active[data-color="ab"] { color: var(--tab-ab); border-bottom-color: var(--tab-ab); }
+    .nav-tabs button.active[data-color="general"] { color: var(--tab-general); border-bottom-color: var(--tab-general); }
+
+    /* Content */
+    main { padding: 32px 0 64px; }
+    section { display: none; }
+    section.active { display: block; }
+    h2 { font-size: 1.6rem; margin-bottom: 16px; color: var(--primary); }
+    h3 { font-size: 1.2rem; margin: 24px 0 10px; color: var(--primary-light); }
+    h4 { font-size: 1.05rem; margin: 18px 0 8px; }
+    p { margin-bottom: 12px; }
+
+    /* Cards */
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin-bottom: 20px; }
+    .card.highlight { border-left: 4px solid var(--primary-light); }
+    .card.warning { border-left: 4px solid var(--warning); }
+    .card.success { border-left: 4px solid var(--success); }
+
+    /* Stat grid */
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin: 20px 0; }
+    .stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 18px; text-align: center; }
+    .stat .number { font-size: 1.8rem; font-weight: 700; color: var(--primary); }
+    .stat .label { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* Code blocks */
+    pre { background: var(--code-bg); color: var(--code-text); padding: 16px 20px; border-radius: 8px; overflow-x: auto; font-size: 0.88rem; line-height: 1.5; margin: 12px 0 16px; }
+    code { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+    p code, li code { background: #edf2f7; color: var(--accent); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 0.92rem; }
+    th { background: var(--bg); text-align: left; padding: 10px 14px; border-bottom: 2px solid var(--border); font-weight: 600; }
+    td { padding: 9px 14px; border-bottom: 1px solid var(--border); }
+    tr:hover td { background: #f0f5ff; }
+
+    /* Lists */
+    ul, ol { margin: 8px 0 16px 24px; }
+    li { margin-bottom: 6px; }
+
+    /* Steps */
+    .step { display: flex; gap: 16px; margin-bottom: 20px; }
+    .step-num { flex-shrink: 0; width: 36px; height: 36px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.95rem; }
+    .step-content { flex: 1; }
+    .step-content h4 { margin-top: 4px; }
+
+    /* Footer */
+    footer { background: var(--primary); color: rgba(255,255,255,0.7); text-align: center; padding: 24px 0; font-size: 0.9rem; }
+    footer a { color: rgba(255,255,255,0.9); }
+
+    /* Collapsible */
+    .collapsible-header { cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .collapsible-header::after { content: '+'; font-size: 1.3rem; font-weight: 300; color: var(--text-muted); }
+    .collapsible-header.open::after { content: '\2212'; }
+
+    @media (max-width: 768px) {
+      header h1 { font-size: 1.8rem; }
+      .stat-grid { grid-template-columns: 1fr 1fr; }
+      .nav-tabs button { padding: 12px 14px; font-size: 0.88rem; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="container">
+      <h1>AI For Accountability Hackathon</h1>
+      <p class="subtitle">Multi-dataset analysis platform for government transparency research. Bringing together CRA charity data, Federal grants, and Alberta open data with AI-powered entity resolution.</p>
+      <span class="badge">April 29, 2026 &middot; MIT License</span>
+    </div>
+  </header>
+
+  <nav class="nav-bar">
+    <div class="container">
+      <ul class="nav-tabs">
+        <li><button :class="{active: tab==='overview'}" @click="tab='overview'">Overview</button></li>
+        <li><button :class="{active: tab==='quickstart'}" @click="tab='quickstart'">Quick Start</button></li>
+        <li><button :class="{active: tab==='cra'}" :data-color="tab==='cra'?'cra':''" @click="tab='cra'">CRA</button></li>
+        <li><button :class="{active: tab==='fed'}" :data-color="tab==='fed'?'fed':''" @click="tab='fed'">FED</button></li>
+        <li><button :class="{active: tab==='ab'}" :data-color="tab==='ab'?'ab':''" @click="tab='ab'">AB</button></li>
+        <li><button :class="{active: tab==='general'}" :data-color="tab==='general'?'general':''" @click="tab='general'">General</button></li>
+        <li><button :class="{active: tab==='reports'}" @click="tab='reports'">Reports</button></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="container">
+
+    <!-- ═══════ OVERVIEW ═══════ -->
+    <section :class="{active: tab==='overview'}">
+      <h2>Project Overview</h2>
+      <p>This repository brings together four major Canadian government open data sources into a shared PostgreSQL database, with separate schemas to prevent collisions. Each dataset has its own pipeline for downloading, cleansing, importing, verifying, and analyzing data.</p>
+
+      <div class="stat-grid">
+        <div class="stat"><div class="number">~11M</div><div class="label">Total Records</div></div>
+        <div class="stat"><div class="number">4</div><div class="label">Datasets</div></div>
+        <div class="stat"><div class="number">4</div><div class="label">DB Schemas</div></div>
+        <div class="stat"><div class="number">6</div><div class="label">Matching Layers</div></div>
+      </div>
+
+      <h3>Architecture</h3>
+      <pre>hackathon/
+├── CRA/        # CRA T3010 Charity Data         (cra schema,     ~7.3M rows)
+├── FED/        # Federal Grants &amp; Contributions  (fed schema,     ~1.3M rows)
+├── AB/         # Alberta Open Data               (ab schema,      ~2.4M rows)
+├── general/    # Shared tools &amp; reference data   (general schema)
+├── index.html  # This page
+├── LICENSE     # MIT
+└── README.md</pre>
+
+      <div class="card highlight">
+        <h4>Shared Database, Isolated Schemas</h4>
+        <p>All four modules share the same PostgreSQL database on Render. Each uses its own schema (<code>cra</code>, <code>fed</code>, <code>ab</code>, <code>general</code>) so tables never collide. Cross-dataset queries use schema-qualified names like <code>cra.cra_identification</code> or <code>fed.grants_contributions</code>.</p>
+      </div>
+
+      <h3>Datasets at a Glance</h3>
+      <table>
+        <thead><tr><th>Dataset</th><th>Schema</th><th>Records</th><th>Years</th><th>Key Focus</th></tr></thead>
+        <tbody>
+          <tr><td><strong>CRA T3010</strong></td><td><code>cra</code></td><td>~7.3M</td><td>2020-2024</td><td>Charity filings, circular gifting, risk scoring</td></tr>
+          <tr><td><strong>Federal Grants</strong></td><td><code>fed</code></td><td>~1.3M</td><td>Multi-year</td><td>Government transfers, amendments, vendor concentration</td></tr>
+          <tr><td><strong>Alberta Open Data</strong></td><td><code>ab</code></td><td>~2.4M</td><td>2014-2025</td><td>Grants, contracts, sole-source, non-profit registry</td></tr>
+          <tr><td><strong>General</strong></td><td><code>general</code></td><td>27</td><td>Current</td><td>Ministry reference, fuzzy matching, AI entity resolution</td></tr>
+        </tbody>
+      </table>
+
+      <h3>The Fuzzy Matching Challenge</h3>
+      <p>The defining challenge across these datasets is entity resolution. The same organization can appear under <strong>dozens of name variations</strong> across CRA, FED, and AB. For example, "The Boyle Street Service Society" appears as 30+ aliases including trade names, truncations, and typos. The <code>general</code> module provides a multi-layer resolution engine with AI-assisted review.</p>
+    </section>
+
+    <!-- ═══════ QUICK START ═══════ -->
+    <section :class="{active: tab==='quickstart'}">
+      <h2>Quick Start Guide</h2>
+
+      <div class="card warning">
+        <h4>Prerequisites</h4>
+        <p>Node.js 18+ required. All data is already loaded in the shared database &mdash; you only need to install dependencies to start querying and running analysis.</p>
+      </div>
+
+      <div class="step"><div class="step-num">1</div><div class="step-content">
+        <h4>Clone and Install</h4>
+        <pre>git clone &lt;repo-url&gt; &amp;&amp; cd hackathon
+for dir in CRA FED AB general; do (cd $dir &amp;&amp; npm install); done</pre>
+      </div></div>
+
+      <div class="step"><div class="step-num">2</div><div class="step-content">
+        <h4>Verify Database Access</h4>
+        <p>Each module ships with <code>.env.public</code> containing read-only credentials. Test connectivity:</p>
+        <pre>cd CRA &amp;&amp; npm run verify
+cd ../FED &amp;&amp; npm run verify
+cd ../AB &amp;&amp; npm run verify</pre>
+      </div></div>
+
+      <div class="step"><div class="step-num">3</div><div class="step-content">
+        <h4>Configure API Keys (optional, for AI features)</h4>
+        <p>To use AI-assisted entity resolution, add credentials to <code>general/.env.public</code> or your personal <code>general/.env</code>:</p>
+        <pre># Option A: Anthropic Direct API
+ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
+
+# Option B: Vertex AI (Google Cloud)
+VERTEX_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
+VERTEX_PROJECT_ID=your-project-id
+VERTEX_CLAUDE_SONNET_MODEL=claude-sonnet-4-6
+VERTEX_ENDPOINT=aiplatform.googleapis.com
+VERTEX_LOCATION_ID=global
+VERTEX_METHOD=rawPredict</pre>
+        <p>The system tries Anthropic first, falls back to Vertex automatically. You can force a provider with <code>--provider vertex</code>.</p>
+      </div></div>
+
+      <div class="step"><div class="step-num">4</div><div class="step-content">
+        <h4>Run Analysis</h4>
+        <pre># CRA: Detect circular gifting patterns
+cd CRA &amp;&amp; npm run analyze:all
+
+# AB: Run all 6 advanced analysis scripts
+cd ../AB &amp;&amp; npm run analyze:all
+
+# General: Resolve an entity across all datasets
+cd ../general
+node scripts/resolve-entity.js --name "Boyle Street Service" --bn 118814391 --llm</pre>
+      </div></div>
+
+      <div class="step"><div class="step-num">5</div><div class="step-content">
+        <h4>Adapt to Your Own LLM</h4>
+        <p>The AI review module (<code>general/lib/llm-review.js</code>) has a clean provider abstraction. To add a new provider:</p>
+        <ol>
+          <li>Add a <code>callYourProvider(prompt, options)</code> function returning <code>{ text, usage }</code></li>
+          <li>Register it in <code>availableProviders()</code> by checking your env variable</li>
+          <li>Add it to the fallback chain in <code>callLLM()</code></li>
+        </ol>
+        <p>The prompt and response parsing are provider-agnostic &mdash; any LLM that returns JSON works.</p>
+      </div></div>
+
+      <h3>Environment Loading Order</h3>
+      <div class="card">
+        <p>All modules load environment variables consistently:</p>
+        <ol>
+          <li><code>.env.public</code> loaded first (shared defaults for hackathon participants)</li>
+          <li><code>.env</code> loaded second with <code>override: true</code> (personal overrides win)</li>
+        </ol>
+        <p>Participants without a <code>.env</code> get the shared read-only credentials. Developers with a <code>.env</code> containing admin credentials automatically override for write operations (migrations, imports, drops).</p>
+      </div>
+    </section>
+
+    <!-- ═══════ CRA ═══════ -->
+    <section :class="{active: tab==='cra'}">
+      <h2>CRA T3010 Charity Data</h2>
+      <p><strong>Schema:</strong> <code>cra</code> &nbsp;|&nbsp; <strong>Records:</strong> ~7.3M &nbsp;|&nbsp; <strong>Years:</strong> 2020-2024 &nbsp;|&nbsp; <strong>Tables:</strong> 35 (6 lookup + 19 data + 10 analysis)</p>
+
+      <div class="stat-grid">
+        <div class="stat"><div class="number">~85K</div><div class="label">Charities / Year</div></div>
+        <div class="stat"><div class="number">35</div><div class="label">Tables + 3 Views</div></div>
+        <div class="stat"><div class="number">0-30</div><div class="label">Risk Score Range</div></div>
+        <div class="stat"><div class="number">2-6</div><div class="label">Hop Cycle Detection</div></div>
+      </div>
+
+      <h3>What's in It</h3>
+      <p>Annual filings from all registered Canadian charities: financial statements, board directors, gift flows between charities, compensation, program descriptions, and political activity.</p>
+
+      <h3>Key Tables</h3>
+      <table>
+        <thead><tr><th>Table</th><th>Description</th><th>~Rows</th></tr></thead>
+        <tbody>
+          <tr><td><code>cra_identification</code></td><td>Charity name, address, category, designation</td><td>410K</td></tr>
+          <tr><td><code>cra_directors</code></td><td>Board members and officers</td><td>2.8M</td></tr>
+          <tr><td><code>cra_financial_details</code></td><td>Revenue, expenses, assets (Section D)</td><td>397K</td></tr>
+          <tr><td><code>cra_qualified_donees</code></td><td>Gifts to qualified donees</td><td>1.6M</td></tr>
+          <tr><td><code>cra_compensation</code></td><td>Employee compensation ranges</td><td>206K</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Pipeline Commands</h3>
+      <pre>cd CRA &amp;&amp; npm install
+
+# Full data pipeline (all 5 years from Open Data API)
+npm run setup              # migrate + seed + fetch + import + verify
+
+# Analysis
+npm run analyze:all        # Detect loops (2-6 hops) + SCC + partitioned + score (0-30)
+npm run lookup -- --name "charity name"    # Interactive network lookup
+npm run risk -- --name "charity name"      # Risk assessment
+
+# Export
+npm run download                           # All tables as CSV
+npm run download -- --year 2024 --format json
+
+# Tests
+npm run test               # 54 unit + integration tests</pre>
+
+      <h3>Circular Gifting Detection</h3>
+      <p>The analysis pipeline detects circular flows where money moves in loops between charities (potentially for quota gaming). It scores each charity 0-30 across three dimensions:</p>
+      <table>
+        <thead><tr><th>Dimension</th><th>Max</th><th>What It Measures</th></tr></thead>
+        <tbody>
+          <tr><td>Circular</td><td>6</td><td>Reciprocal partners, multi-cycle, shared directors</td></tr>
+          <tr><td>Financial</td><td>12</td><td>Overhead, pass-through indicators, compensation vs programs</td></tr>
+          <tr><td>Temporal</td><td>12</td><td>Same-year symmetric flows, persistent cross-year patterns</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ═══════ FED ═══════ -->
+    <section :class="{active: tab==='fed'}">
+      <h2>Federal Grants &amp; Contributions</h2>
+      <p><strong>Schema:</strong> <code>fed</code> &nbsp;|&nbsp; <strong>Records:</strong> ~1.275M &nbsp;|&nbsp; <strong>Departments:</strong> 51+ &nbsp;|&nbsp; <strong>Recipients:</strong> 422K+</p>
+
+      <div class="stat-grid">
+        <div class="stat"><div class="number">1.275M</div><div class="label">Grant Records</div></div>
+        <div class="stat"><div class="number">51+</div><div class="label">Federal Departments</div></div>
+        <div class="stat"><div class="number">0-35</div><div class="label">Risk Score Range</div></div>
+        <div class="stat"><div class="number">9,311</div><div class="label">Programs</div></div>
+      </div>
+
+      <h3>What's in It</h3>
+      <p>All federal government grants, contributions, and transfer payments. Includes department, program, recipient type, agreement type, and value. Supports amendment tracking and multi-dimensional risk scoring.</p>
+
+      <h3>Key Fields</h3>
+      <table>
+        <thead><tr><th>Field</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>recipient_legal_name</code></td><td>Grant recipient organization name</td></tr>
+          <tr><td><code>recipient_business_number</code></td><td>9-digit CRA BN (often NULL pre-2018)</td></tr>
+          <tr><td><code>agreement_type</code></td><td>G=Grant, C=Contribution, O=Other</td></tr>
+          <tr><td><code>agreement_value</code></td><td>Dollar amount (negative = amendment)</td></tr>
+          <tr><td><code>owner_org_title</code></td><td>Funding department name</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Pipeline Commands</h3>
+      <pre>cd FED &amp;&amp; npm install
+
+npm run setup              # Full pipeline: migrate + seed + fetch + import + fix-quality + verify
+npm run dashboard          # Summary statistics
+
+# Analysis (8 advanced scripts)
+npm run analyze:all        # All: equity, for-profit, amendments, concentration, zombies, export, risk, individuals
+npm run analyze:risk       # 7-dimension risk register (109K+ entities scored)
+
+# Tests
+npm run test</pre>
+
+      <h3>Risk Dimensions (0-35)</h3>
+      <table>
+        <thead><tr><th>Dimension</th><th>Max</th><th>What It Measures</th></tr></thead>
+        <tbody>
+          <tr><td>Cessation</td><td>5</td><td>No new grants in recent years</td></tr>
+          <tr><td>Identity</td><td>5</td><td>No business number, weak identity</td></tr>
+          <tr><td>Amendment</td><td>5</td><td>High amendment rate, value creep</td></tr>
+          <tr><td>Concentration</td><td>5</td><td>Dominates program/department</td></tr>
+          <tr><td>Dependency</td><td>5</td><td>Few grants, high total</td></tr>
+          <tr><td>Opacity</td><td>5</td><td>Missing descriptions, results, NAICS</td></tr>
+          <tr><td>Scale</td><td>5</td><td>Outsized single grants</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ═══════ AB ═══════ -->
+    <section :class="{active: tab==='ab'}">
+      <h2>Alberta Open Data</h2>
+      <p><strong>Schema:</strong> <code>ab</code> &nbsp;|&nbsp; <strong>Records:</strong> ~2.36M &nbsp;|&nbsp; <strong>Years:</strong> 2014-2025 &nbsp;|&nbsp; <strong>Datasets:</strong> 4</p>
+
+      <div class="stat-grid">
+        <div class="stat"><div class="number">1.77M</div><div class="label">Grant Payments</div></div>
+        <div class="stat"><div class="number">67K</div><div class="label">Blue Book Contracts</div></div>
+        <div class="stat"><div class="number">15.5K</div><div class="label">Sole-Source Contracts</div></div>
+        <div class="stat"><div class="number">69K</div><div class="label">Non-Profit Registry</div></div>
+      </div>
+
+      <h3>Datasets</h3>
+      <table>
+        <thead><tr><th>Dataset</th><th>Table</th><th>Records</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td>Alberta Grants</td><td><code>ab_grants</code></td><td>1,772,874</td><td>JSON (MongoDB export)</td></tr>
+          <tr><td>Blue Book Contracts</td><td><code>ab_contracts</code></td><td>67,079</td><td>Excel</td></tr>
+          <tr><td>Sole-Source Contracts</td><td><code>ab_sole_source</code></td><td>15,533</td><td>Excel</td></tr>
+          <tr><td>Non-Profit Registry</td><td><code>ab_non_profit</code></td><td>69,271</td><td>Excel</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Pipeline Commands</h3>
+      <pre>cd AB &amp;&amp; npm install
+
+npm run setup              # Full pipeline: migrate + seed + import:all + verify
+
+# Individual imports
+npm run import:grants      # Stream 1.1GB JSON (~10 min)
+npm run import:contracts   # Blue Book Excel
+npm run import:sole-source # Sole-source Excel
+npm run import:non-profit  # Non-profit registry Excel
+
+npm run verify             # 25 verification checks</pre>
+
+      <h3>Analysis Scripts (6 advanced)</h3>
+      <pre># Run all analysis
+npm run analyze:all
+
+# Individual scripts
+npm run analyze:quality      # Data quality audit (NULLs, duplicates, outliers)
+npm run analyze:summary      # Ministry breakdowns, top recipients, trends
+npm run analyze:insights     # HHI concentration, dissolved NPOs, ministry mapping
+npm run analyze:sole-source  # 5 sole-source scenarios (repeats, splitting, geography)
+npm run analyze:scenarios    # 5 grant/contract scenarios (ratios, volatility, lottery)
+npm run analyze:non-profit   # Lifecycle trends, survival analysis, sector health</pre>
+
+      <h3>5 Sole-Source Scenarios</h3>
+      <ol>
+        <li><strong>Repeat vendors</strong> &mdash; Same vendor, same ministry, 3+ sole-source contracts</li>
+        <li><strong>Sole-source to competitive pipeline</strong> &mdash; Vendors in both sole-source AND Blue Book</li>
+        <li><strong>Contract splitting</strong> &mdash; Multiple same-FY contracts suggesting threshold avoidance</li>
+        <li><strong>Geographic concentration</strong> &mdash; Out-of-province vendor analysis</li>
+        <li><strong>Duration/value outliers</strong> &mdash; Longest contracts, highest daily rates</li>
+      </ol>
+
+      <h3>5 Grants/Contracts Scenarios</h3>
+      <ol>
+        <li><strong>Grant-to-contract ratio</strong> &mdash; Which ministries favor grants vs procurement</li>
+        <li><strong>Recipient concentration (HHI)</strong> &mdash; Monopoly programs</li>
+        <li><strong>Funding volatility</strong> &mdash; Most unstable year-over-year programs</li>
+        <li><strong>Lottery funding</strong> &mdash; Lottery vs non-lottery distribution patterns</li>
+        <li><strong>Payment timing</strong> &mdash; End-of-fiscal-year spending spikes</li>
+      </ol>
+    </section>
+
+    <!-- ═══════ GENERAL ═══════ -->
+    <section :class="{active: tab==='general'}">
+      <h2>General &mdash; Shared Tools &amp; Entity Resolution</h2>
+      <p><strong>Schema:</strong> <code>general</code> &nbsp;|&nbsp; Cross-dataset utilities, reference data, and AI-powered matching.</p>
+
+      <h3>Ministry Reference Data</h3>
+      <p>27 current Alberta ministries with short codes, ministers, deputy ministers, and effective dates. Loaded from <code>Ministry.js</code> and updated with the latest cabinet.</p>
+      <pre>cd general &amp;&amp; npm install &amp;&amp; npm run setup</pre>
+
+      <h3>Entity Resolution Engine</h3>
+      <p>Multi-layer resolution that handles the challenge of matching entities across CRA, FED, and AB where organizations appear under dozens of name variations.</p>
+
+      <h4>Resolution Layers</h4>
+      <table>
+        <thead><tr><th>Layer</th><th>Method</th><th>Confidence</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>BN Anchor</td><td>99%</td><td>Match on root 9-digit business number (gold standard)</td></tr>
+          <tr><td>1b</td><td>BN Negative</td><td>reject</td><td>Different BN root = confirmed different entity</td></tr>
+          <tr><td>2</td><td>Exact Normalized</td><td>95%</td><td>Exact match after normalization</td></tr>
+          <tr><td>3</td><td>Core Token Gate</td><td>70-90%</td><td>All discriminating words must be present</td></tr>
+          <tr><td>4</td><td>Trigram + Gate</td><td>60-85%</td><td>pg_trgm similarity filtered by tokens</td></tr>
+          <tr><td>5</td><td>Trade-Name Expansion</td><td>varies</td><td>Parse "TRADE NAME OF" and bilingual "|"</td></tr>
+          <tr><td>6</td><td>AI Review</td><td>varies</td><td>Claude contextual judgment (SAME/RELATED/DIFFERENT)</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Commands</h3>
+      <pre># Deterministic resolution (no API key needed)
+node scripts/resolve-entity.js --name "Boyle Street Service" --bn 118814391
+
+# With AI second pass (Anthropic -> Vertex fallback)
+node scripts/resolve-entity.js --name "Homeward Trust" --bn 834173627 --llm
+
+# Force a specific provider
+node scripts/resolve-entity.js --name "mustard seed" --llm --provider vertex
+
+# Save results to JSON
+node scripts/resolve-entity.js --name "Homeward Trust" --llm --output results.json
+
+# Basic fuzzy search (simpler, trigram-only)
+node scripts/fuzzy-search.js --name "University of Alberta"
+
+# Batch cross-dataset matching
+node scripts/cross-match.js --threshold 0.6 --limit 200
+
+# Standalone AI review from saved results
+node scripts/llm-review.js --input results.json --output reviewed.json</pre>
+
+      <h3>AI Provider Configuration</h3>
+      <div class="card">
+        <p>The LLM review supports <strong>two providers</strong> with automatic fallback. Set credentials in <code>.env.public</code> or <code>.env</code>:</p>
+        <table>
+          <thead><tr><th>Provider</th><th>Env Variable</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td>Anthropic Direct</td><td><code>ANTHROPIC_API_KEY</code></td><td>Tried first</td></tr>
+            <tr><td>Vertex AI</td><td><code>VERTEX_SERVICE_ACCOUNT_JSON</code> + <code>VERTEX_PROJECT_ID</code></td><td>Fallback</td></tr>
+          </tbody>
+        </table>
+        <p>Override with <code>--provider vertex</code> or <code>--provider anthropic</code>. To add your own LLM, implement <code>callYourProvider(prompt, opts)</code> in <code>lib/llm-review.js</code>.</p>
+      </div>
+    </section>
+
+    <!-- ═══════ REPORTS ═══════ -->
+    <section :class="{active: tab==='reports'}">
+      <h2>Reports Reference</h2>
+      <p>All analysis scripts output reports in both JSON (structured) and TXT (human-readable) formats to <code>data/reports/</code> in each module.</p>
+
+      <h3>AB Reports (<code>AB/data/reports/</code>)</h3>
+      <table>
+        <thead><tr><th>Report</th><th>Script</th><th>Content</th></tr></thead>
+        <tbody>
+          <tr><td><code>data-quality-audit.*</code></td><td><code>analyze:quality</code></td><td>NULL rates, empty strings, duplicates, amount outliers, fiscal year coverage</td></tr>
+          <tr><td><code>summary-analysis.*</code></td><td><code>analyze:summary</code></td><td>Ministry/FY breakdowns, top recipients, program distribution, cross-dataset overlap</td></tr>
+          <tr><td><code>deep-insights.*</code></td><td><code>analyze:insights</code></td><td>Vendor HHI, sole-source rates, dissolved NPO grants, ministry name mapping</td></tr>
+          <tr><td><code>sole-source-deep-dive.*</code></td><td><code>analyze:sole-source</code></td><td>5 scenarios: repeat vendors, pipeline, splitting, geography, outliers</td></tr>
+          <tr><td><code>grants-contracts-scenarios.*</code></td><td><code>analyze:scenarios</code></td><td>5 scenarios: ratios, HHI, volatility, lottery, payment timing</td></tr>
+          <tr><td><code>non-profit-trends.*</code></td><td><code>analyze:non-profit</code></td><td>Registration trends, survival analysis, entity type evolution, sector health</td></tr>
+        </tbody>
+      </table>
+
+      <h3>FED Reports (<code>FED/data/reports/</code>)</h3>
+      <table>
+        <thead><tr><th>Report</th><th>Content</th></tr></thead>
+        <tbody>
+          <tr><td><code>risk-register.*</code></td><td>109K+ entities scored 0-35 across 7 risk dimensions</td></tr>
+          <tr><td><code>provincial-equity.*</code></td><td>Per-capita provincial funding analysis</td></tr>
+          <tr><td><code>for-profit-deep-dive.*</code></td><td>For-profit recipient concentration</td></tr>
+          <tr><td><code>amendment-creep.*</code></td><td>Amendment patterns and value creep</td></tr>
+          <tr><td><code>recipient-concentration.*</code></td><td>Herfindahl-Hirschman Index analysis</td></tr>
+          <tr><td><code>zombie-and-ghost.*</code></td><td>Inactive recipients and identity risk</td></tr>
+          <tr><td><code>individual-recipients.*</code></td><td>Individual grant recipient analysis</td></tr>
+          <tr><td><code>entity-export.*</code></td><td>Flagged entities and for-profit recipients (CSV/JSON)</td></tr>
+          <tr><td><code>dashboard.json</code></td><td>Summary statistics for dashboarding</td></tr>
+        </tbody>
+      </table>
+
+      <h3>CRA Reports (<code>CRA/data/reports/</code>)</h3>
+      <table>
+        <thead><tr><th>Report</th><th>Content</th></tr></thead>
+        <tbody>
+          <tr><td><code>loops-*-hop.json</code></td><td>Circular gifting cycles detected at 2-6 hops</td></tr>
+          <tr><td><code>loop-universe.json</code></td><td>All charity BNs participating in any cycle</td></tr>
+          <tr><td><code>universe-scored.*</code></td><td>Full scored universe (0-30 per charity)</td></tr>
+          <tr><td><code>universe-top50.txt</code></td><td>Top 50 highest-scoring entities with factor breakdown</td></tr>
+        </tbody>
+      </table>
+
+      <h3>General Reports (<code>general/reports/</code>)</h3>
+      <table>
+        <thead><tr><th>Report</th><th>Content</th></tr></thead>
+        <tbody>
+          <tr><td><code>cross-match-results.*</code></td><td>Fuzzy cross-dataset matching results (non-profit vs grants, sole-source vs contracts, etc.)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+  </main>
+
+  <footer>
+    <div class="container">
+      AI For Accountability Hackathon &middot; April 29, 2026 &middot;
+      <a href="LICENSE">MIT License</a> &middot;
+      <a href="README.md">README</a>
+    </div>
+  </footer>
+
+  <noscript>
+    <div style="padding: 40px; max-width: 800px; margin: 0 auto; font-family: sans-serif;">
+      <h1>AI For Accountability Hackathon</h1>
+      <p>This page requires JavaScript to display the interactive documentation.</p>
+      <p>Please enable JavaScript, or refer to the <a href="README.md">README.md</a> file for documentation.</p>
+    </div>
+  </noscript>
+
+</div>
+
+<script>
+const { createApp } = Vue;
+createApp({
+  data() {
+    return { tab: 'overview' };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

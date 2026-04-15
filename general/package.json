@@ -1,0 +1,22 @@
+{
+  "name": "ai-for-accountability-general",
+  "version": "1.0.0",
+  "description": "AI For Accountability Hackathon - General reference data (ministries, shared lookups)",
+  "scripts": {
+    "migrate": "node scripts/01-migrate.js",
+    "seed:ministries": "node scripts/02-seed-ministries.js",
+    "setup": "npm run migrate && npm run seed:ministries",
+    "drop": "node scripts/drop-tables.js",
+    "reset": "npm run drop && npm run setup",
+    "create-indexes": "node scripts/create-trigram-indexes.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.88.0",
+    "dotenv": "^17.4.2",
+    "jose": "^6.2.2",
+    "pg": "^8.20.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
