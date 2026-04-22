@@ -1,0 +1,12 @@
+services:
+  postgres:
+    image: postgres:18.3
+    container_name: postgres-hackaton
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_PASSWORD: qohash
+      POSTGRES_USER: qohash
+      POSTGRES_DB: hackaton
+    volumes:
+      - ./docker/postgres:/docker-entrypoint-initdb.d

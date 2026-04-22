@@ -20,7 +20,7 @@ fed/tooling
 # repo alone documents the full schema.
 .local-db/data/
 .local-db/node_modules/
-.local-db/.env
+!.local-db/.env
 
 # Splink pipeline intermediate artifacts — regenerated each run by
 # splink/export_source_data.py (~60 MB of parquet files + DuckDB scratch).
