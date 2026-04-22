@@ -126,6 +126,7 @@
         <li><button :class="{active: tab==='ab'}" :data-color="tab==='ab'?'ab':''" @click="tab='ab'">AB</button></li>
         <li><button :class="{active: tab==='general'}" :data-color="tab==='general'?'general':''" @click="tab='general'">General</button></li>
         <li><button :class="{active: tab==='schemas'}" @click="tab='schemas'">Schemas &amp; Tables</button></li>
+        <li><button :class="{active: tab==='local-db'}" @click="tab='local-db'">Local DB</button></li>
         <li><button :class="{active: tab==='reports'}" @click="tab='reports'">Reports</button></li>
       </ul>
     </div>
@@ -139,19 +140,20 @@
       <p>This repository brings together four major Canadian government open data sources into a shared PostgreSQL database, with separate schemas to prevent collisions. Each dataset has its own pipeline for downloading, cleansing, importing, verifying, and analyzing data.</p>
 
       <div class="stat-grid">
-        <div class="stat"><div class="number">~20M</div><div class="label">Total Records (all schemas)</div></div>
+        <div class="stat"><div class="number">~23M</div><div class="label">Total Records (all schemas)</div></div>
         <div class="stat"><div class="number">4</div><div class="label">Datasets</div></div>
         <div class="stat"><div class="number">4</div><div class="label">DB Schemas</div></div>
         <div class="stat"><div class="number">6</div><div class="label">Matching Layers</div></div>
       </div>
-      <p class="mini" style="margin-top:-8px">~11M raw source rows (CRA T3010 7.3M + FED 1.3M + AB 2.4M) plus ~9M in the <code>general</code> entity-resolution schema and pre-computed CRA analysis tables. Verified counts in <a href="CRA/data/reports/full-reload-verify.md">CRA/data/reports/full-reload-verify.md</a>.</p>
+      <p class="mini" style="margin-top:-8px">~12.2M raw source rows (CRA T3010 ~7.3M + FED ~1.28M + AB ~2.61M + CRA qualified-donee gift lines ~1.66M included in CRA total) plus ~1.42M CRA pre-computed analysis rows and ~10.5M in the <code>general</code> entity-resolution schema. Counts persisted in <code>.local-db/manifest.json</code>.</p>
 
       <h3>Architecture</h3>
       <pre>hackathon/
-├── CRA/        # CRA T3010 Charity Data         (cra schema,     ~7.3M raw + ~1.3M analysis)
-├── FED/        # Federal Grants &amp; Contributions  (fed schema,     ~1.3M rows)
-├── AB/         # Alberta Open Data               (ab schema,      ~2.4M rows)
-├── general/    # Shared tools &amp; reference data   (general schema, ~7.9M source links)
+├── CRA/        # CRA T3010 Charity Data         (cra schema,     ~7.3M raw + ~1.42M analysis)
+├── FED/        # Federal Grants &amp; Contributions  (fed schema,     ~1.28M rows)
+├── AB/         # Alberta Open Data               (ab schema,      ~2.61M rows)
+├── general/    # Cross-dataset entity resolution (general schema, ~10.5M rows, ~5.2M source links)
+├── .local-db/  # Local DB recreation kit (DDL + manifest; JSONL data ships out-of-band)
 ├── index.html  # This page
 ├── LICENSE     # MIT
 └── README.md</pre>
@@ -165,10 +167,10 @@
       <table>
         <thead><tr><th>Dataset</th><th>Schema</th><th>Records</th><th>Years</th><th>Key Focus</th></tr></thead>
         <tbody>
-          <tr><td><strong>CRA T3010</strong></td><td><code>cra</code></td><td>~7.3M raw + ~1.3M analysis</td><td>2020-2024</td><td>Charity filings, circular gifting, risk scoring</td></tr>
-          <tr><td><strong>Federal Grants</strong></td><td><code>fed</code></td><td>~1.3M</td><td>Multi-year</td><td>Government transfers, amendments, vendor concentration</td></tr>
-          <tr><td><strong>Alberta Open Data</strong></td><td><code>ab</code></td><td>~2.6M</td><td>2014-2026</td><td>Grants, contracts, sole-source, non-profit registry</td></tr>
-          <tr><td><strong>General</strong></td><td><code>general</code></td><td>27</td><td>Current</td><td>Ministry reference, fuzzy matching, AI entity resolution</td></tr>
+          <tr><td><strong>CRA T3010</strong></td><td><code>cra</code></td><td>~7.3M raw + ~1.42M analysis</td><td>2020-2024</td><td>Charity filings, circular gifting, risk scoring</td></tr>
+          <tr><td><strong>Federal Grants</strong></td><td><code>fed</code></td><td>~1.28M</td><td>Multi-year</td><td>Government transfers, amendments, vendor concentration</td></tr>
+          <tr><td><strong>Alberta Open Data</strong></td><td><code>ab</code></td><td>~2.61M</td><td>2014-2026</td><td>Grants, contracts, sole-source, non-profit registry</td></tr>
+          <tr><td><strong>General</strong></td><td><code>general</code></td><td>~10.5M</td><td>Current</td><td>Cross-dataset entity resolution (~851K golden records), ministries reference, Splink probabilistic matching</td></tr>
         </tbody>
       </table>
 
@@ -255,11 +257,11 @@ npm run entities:dossier          # per-entity dossier explorer at localhost:380
     <!-- ═══════ CRA ═══════ -->
     <section :class="{active: tab==='cra'}">
       <h2>CRA T3010 Charity Data</h2>
-      <p><strong>Schema:</strong> <code>cra</code> &nbsp;|&nbsp; <strong>Records:</strong> ~7.3M T3010 + ~1.3M pre-computed analysis &nbsp;|&nbsp; <strong>Years:</strong> 2020-2024 &nbsp;|&nbsp; <strong>Tables:</strong> 46 + 3 views (6 lookup + 19 raw-data + 21 analysis created by advanced scripts)</p>
+      <p><strong>Schema:</strong> <code>cra</code> &nbsp;|&nbsp; <strong>Records:</strong> ~7.3M T3010 + ~1.42M pre-computed analysis &nbsp;|&nbsp; <strong>Years:</strong> 2020-2024 &nbsp;|&nbsp; <strong>Tables:</strong> 49 + 3 views (6 lookup + 19 raw-data + 24 analysis created by advanced scripts)</p>
 
       <div class="stat-grid">
         <div class="stat"><div class="number">~85K</div><div class="label">Charities / Year</div></div>
-        <div class="stat"><div class="number">35</div><div class="label">Tables + 3 Views</div></div>
+        <div class="stat"><div class="number">49</div><div class="label">Tables + 3 Views</div></div>
         <div class="stat"><div class="number">0-30</div><div class="label">Risk Score Range</div></div>
         <div class="stat"><div class="number">2-6</div><div class="label">Hop Cycle Detection</div></div>
       </div>
@@ -269,13 +271,13 @@ npm run entities:dossier          # per-entity dossier explorer at localhost:380
 
       <h3>Key Tables</h3>
       <table>
-        <thead><tr><th>Table</th><th>Description</th><th>~Rows</th></tr></thead>
+        <thead><tr><th>Table</th><th>Description</th><th>Rows</th></tr></thead>
         <tbody>
-          <tr><td><code>cra_identification</code></td><td>Charity name, address, category, designation</td><td>410K</td></tr>
-          <tr><td><code>cra_directors</code></td><td>Board members and officers</td><td>2.8M</td></tr>
-          <tr><td><code>cra_financial_details</code></td><td>Revenue, expenses, assets (Section D)</td><td>397K</td></tr>
-          <tr><td><code>cra_qualified_donees</code></td><td>Gifts to qualified donees</td><td>1.6M</td></tr>
-          <tr><td><code>cra_compensation</code></td><td>Employee compensation ranges</td><td>206K</td></tr>
+          <tr><td><code>cra_identification</code></td><td>Charity name, address, category, designation</td><td>421,866</td></tr>
+          <tr><td><code>cra_directors</code></td><td>Board members and officers</td><td>2,873,624</td></tr>
+          <tr><td><code>cra_financial_details</code></td><td>Revenue, expenses, assets (Section D)</td><td>420,849</td></tr>
+          <tr><td><code>cra_qualified_donees</code></td><td>Gifts to qualified donees</td><td>1,664,343</td></tr>
+          <tr><td><code>cra_compensation</code></td><td>Employee compensation ranges</td><td>216,380</td></tr>
         </tbody>
       </table>
 
@@ -367,7 +369,7 @@ npm run test</pre>
     <!-- ═══════ AB ═══════ -->
     <section :class="{active: tab==='ab'}">
       <h2>Alberta Open Data</h2>
-      <p><strong>Schema:</strong> <code>ab</code> &nbsp;|&nbsp; <strong>Records:</strong> ~2.57M &nbsp;|&nbsp; <strong>Years:</strong> 2014-2026 &nbsp;|&nbsp; <strong>Datasets:</strong> 4</p>
+      <p><strong>Schema:</strong> <code>ab</code> &nbsp;|&nbsp; <strong>Records:</strong> ~2.61M &nbsp;|&nbsp; <strong>Years:</strong> 2014-2026 (12 fiscal years) &nbsp;|&nbsp; <strong>Datasets:</strong> 4</p>
 
       <div class="stat-grid">
         <div class="stat"><div class="number">1.99M</div><div class="label">Grant Payments</div></div>
@@ -460,17 +462,18 @@ npm run analyze:non-profit   # Lifecycle trends, survival analysis, sector healt
       </ul>
       <p>LLM review is resumable across crashes. Workers claim candidates via row-level locks; stuck reviews are reset automatically after 10 minutes. 429 rate-limit errors trigger 30-120 second exponential backoff.</p>
 
-      <h3>The Pipeline: Seven Stages</h3>
+      <h3>The Pipeline: Eight Stages</h3>
       <table>
         <thead><tr><th>#</th><th>Stage</th><th>What it does</th><th>Typical runtime</th></tr></thead>
         <tbody>
           <tr><td>1</td><td>Schema migration</td><td>Creates the entity tables, indexes, and SQL helper functions (normalized-name, BN validator, BN extractor).</td><td>~10s</td></tr>
-          <tr><td>2</td><td>Deterministic resolve</td><td>Seeds entities from CRA (87K charities), then enriches with CRA qualified-donees (name variants from T3010s), federal grants, and Alberta data. Ends with deduplication by shared BN and same normalized-name.</td><td>~20&ndash;25 min</td></tr>
-          <tr><td>3</td><td>Splink probabilistic match</td><td>Exports cleaned source data to Parquet, runs Splink with EM-trained feature weights on a DuckDB backend, writes ~530K pairwise predictions and ~210K cluster-alias rows back to Postgres.</td><td>~10 min</td></tr>
-          <tr><td>4</td><td>Candidate detection</td><td>Five tiers: same normalized name, shared BN root, trade-name extraction, trigram similarity, Splink probabilistic. Fills a staging table of ~1.5M candidate pairs.</td><td>~5&ndash;10 min</td></tr>
+          <tr><td>2</td><td>Deterministic resolve</td><td>Seeds entities from CRA (~91K charities), then enriches with CRA qualified-donees (name variants from T3010s), federal grants (~422K distinct names), and Alberta data. Ends with deduplication by shared BN and same normalized-name.</td><td>~20&ndash;25 min</td></tr>
+          <tr><td>3</td><td>Splink probabilistic match</td><td>Exports cleaned source data to Parquet, runs Splink with EM-trained feature weights on a DuckDB backend, writes ~540K pairwise predictions and cluster-alias rows back to Postgres.</td><td>~10 min</td></tr>
+          <tr><td>4</td><td>Candidate detection</td><td>Five tiers: same normalized name, shared BN root, trade-name extraction, trigram similarity, Splink probabilistic. Fills a staging table of ~1.6M candidate pairs.</td><td>~5&ndash;10 min</td></tr>
           <tr><td>5</td><td>IDF keyword overlap</td><td>Inverted-index scan weighted by inverse document frequency. Catches hierarchical organizations (e.g., "Diocese of Hamilton") that trigram misses because of word-order variation.</td><td>~3 min</td></tr>
           <tr><td>6</td><td>LLM verdict + authoring</td><td>100&times;2 concurrent Claude workers decide SAME/RELATED/DIFFERENT and author golden-record fields. Dual-provider throughput (~30 pairs/sec combined).</td><td>~6&ndash;8 hours</td></tr>
           <tr><td>7</td><td>Final golden-record compile</td><td>For every active entity (LLM-touched or not), compiles ranked aliases with provenance, source summary, addresses, CRA financial rollup, federal grants profile, Alberta profile.</td><td>~2&ndash;5 min</td></tr>
+          <tr><td>8</td><td>Donee-name trigram fallback</td><td>Reviews unlinked <code>cra_qualified_donees</code> rows via trigram-fuzzy lookup against the authoritative catalog. LLM decides SAME/RELATED/DIFFERENT. Tagged <code>match_method = 'donee_trigram_fallback'</code> for full reversibility. Never creates new entities.</td><td>~30&ndash;90 min</td></tr>
         </tbody>
       </table>
 
@@ -483,7 +486,7 @@ npm run analyze:non-profit   # Lifecycle trends, survival analysis, sector healt
       <table>
         <thead><tr><th>Tool</th><th>Role</th><th>Why</th></tr></thead>
         <tbody>
-          <tr><td>PostgreSQL</td><td>Primary data store and compute engine</td><td>Single source of truth; every stage reads and writes SQL. GIN indexes enable millisecond fuzzy-name joins at 800K-entity scale.</td></tr>
+          <tr><td>PostgreSQL</td><td>Primary data store and compute engine</td><td>Single source of truth; every stage reads and writes SQL. GIN indexes enable millisecond fuzzy-name joins at 850K-entity scale.</td></tr>
           <tr><td><code>pg_trgm</code></td><td>Character-trigram similarity</td><td>Postgres extension; catches typos and character-level drift in names.</td></tr>
           <tr><td>Splink (MoJ, MIT license)</td><td>Probabilistic matching</td><td>Academic-standard Fellegi-Sunter implementation; feature weights learned from data via EM. Battle-tested at government scale.</td></tr>
           <tr><td>DuckDB</td><td>Splink's in-memory compute backend</td><td>Fastest option for single-machine Splink. Handles ~1M-record pairwise comparison universe in a few minutes.</td></tr>
@@ -506,11 +509,11 @@ npm run analyze:non-profit   # Lifecycle trends, survival analysis, sector healt
 
       <h3>Outcomes</h3>
       <div class="stat-grid">
-        <div class="stat"><div class="number">~800K</div><div class="label">active canonical entities</div></div>
-        <div class="stat"><div class="number">~3.3M</div><div class="label">source links across 6 tables</div></div>
-        <div class="stat"><div class="number">~40K</div><div class="label">multi-dataset entities</div></div>
-        <div class="stat"><div class="number">~50K</div><div class="label">LLM-confirmed SAME merges</div></div>
-        <div class="stat"><div class="number">~45K</div><div class="label">RELATED cross-links</div></div>
+        <div class="stat"><div class="number">~851K</div><div class="label">active canonical entities</div></div>
+        <div class="stat"><div class="number">~5.2M</div><div class="label">source links across 6 tables</div></div>
+        <div class="stat"><div class="number">~55K</div><div class="label">multi-dataset entities</div></div>
+        <div class="stat"><div class="number">~67K</div><div class="label">LLM-confirmed SAME merges</div></div>
+        <div class="stat"><div class="number">~65K</div><div class="label">RELATED cross-links</div></div>
         <div class="stat"><div class="number">98%</div><div class="label">coverage vs Splink reference sample</div></div>
       </div>
 
@@ -548,15 +551,15 @@ npm run pipeline:rebuild              # reset + all stages in order</pre>
       </p>
 
       <!-- ── CRA ── -->
-      <h3 style="color: var(--tab-cra)">CRA &mdash; <code>cra</code> schema (46 tables + 3 views, ~8.6M rows)</h3>
+      <h3 style="color: var(--tab-cra)">CRA &mdash; <code>cra</code> schema (49 tables + 3 views, ~8.76M rows)</h3>
 
       <h4>Identity &amp; registration</h4>
       <table>
         <thead><tr><th>Table</th><th>Rows</th><th>Purpose</th></tr></thead>
         <tbody>
-          <tr><td><code>cra_identification</code></td><td>422K</td><td>One row per charity per fiscal year: legal name, account name, designation (A/B/C), category, registered address, contact details, registration date. Primary key <code>(bn, fiscal_year)</code>.</td></tr>
-          <tr><td><code>identification_name_history</code></td><td>92K</td><td>Consolidated legal/account name history per BN with first and last year seen. Useful for detecting renames.</td></tr>
-          <tr><td><code>cra_web_urls</code></td><td>169K</td><td>Contact URLs declared on T3010 by year and sequence.</td></tr>
+          <tr><td><code>cra_identification</code></td><td>421,866</td><td>One row per charity per fiscal year: legal name, account name, designation (A/B/C), category, registered address, contact details, registration date. Primary key <code>(bn, fiscal_year)</code>.</td></tr>
+          <tr><td><code>identification_name_history</code></td><td>92,437</td><td>Consolidated legal/account name history per BN with first and last year seen. Useful for detecting renames.</td></tr>
+          <tr><td><code>cra_web_urls</code></td><td>169,123</td><td>Contact URLs declared on T3010 by year and sequence.</td></tr>
         </tbody>
       </table>
 
@@ -564,14 +567,14 @@ npm run pipeline:rebuild              # reset + all stages in order</pre>
       <table>
         <thead><tr><th>Table</th><th>Rows</th><th>Purpose</th></tr></thead>
         <tbody>
-          <tr><td><code>cra_financial_details</code></td><td>411K</td><td>T3010 Section D line items: revenue breakdown (receipted / non-receipted / government / investment / other), expenditures, assets, liabilities. One row per (bn, fpe).</td></tr>
-          <tr><td><code>cra_financial_general</code></td><td>423K</td><td>Program-area allocations (% of resources), internal divisions, Y/N program flags.</td></tr>
-          <tr><td><code>cra_foundation_info</code></td><td>423K</td><td>Foundation-specific T3010 fields (fields 100-series): controlling / controlled donors, non-qualifying investment income, etc.</td></tr>
-          <tr><td><code>cra_charitable_programs</code></td><td>479K</td><td>Free-text descriptions of each charity&rsquo;s program activities, by program type.</td></tr>
-          <tr><td><code>cra_directors</code></td><td>2.87M</td><td>Board members per filing: name, position, arm&rsquo;s-length flag, start/end dates.</td></tr>
-          <tr><td><code>cra_compensation</code></td><td>216K</td><td>Employee compensation ranges (fields 300-390): FTE positions, part-time, total compensation.</td></tr>
-          <tr><td><code>cra_disbursement_quota</code></td><td>22K</td><td>Disbursement-quota calculation fields (T3010 Section C).</td></tr>
-          <tr><td><code>cra_gifts_in_kind</code></td><td>55K</td><td>In-kind gift details (non-cash donations received).</td></tr>
+          <tr><td><code>cra_financial_details</code></td><td>420,849</td><td>T3010 Section D line items: revenue breakdown (receipted / non-receipted / government / investment / other), expenditures, assets, liabilities. One row per (bn, fpe).</td></tr>
+          <tr><td><code>cra_financial_general</code></td><td>422,683</td><td>Program-area allocations (% of resources), internal divisions, Y/N program flags.</td></tr>
+          <tr><td><code>cra_foundation_info</code></td><td>422,569</td><td>Foundation-specific T3010 fields (fields 100-series): controlling / controlled donors, non-qualifying investment income, etc.</td></tr>
+          <tr><td><code>cra_charitable_programs</code></td><td>478,691</td><td>Free-text descriptions of each charity&rsquo;s program activities, by program type.</td></tr>
+          <tr><td><code>cra_directors</code></td><td>2,873,624</td><td>Board members per filing: name, position, arm&rsquo;s-length flag, start/end dates.</td></tr>
+          <tr><td><code>cra_compensation</code></td><td>216,380</td><td>Employee compensation ranges (fields 300-390): FTE positions, part-time, total compensation.</td></tr>
+          <tr><td><code>cra_disbursement_quota</code></td><td>22,151</td><td>Disbursement-quota calculation fields (T3010 Section C).</td></tr>
+          <tr><td><code>cra_gifts_in_kind</code></td><td>54,575</td><td>In-kind gift details (non-cash donations received).</td></tr>
         </tbody>
       </table>
 
@@ -579,14 +582,14 @@ npm run pipeline:rebuild              # reset + all stages in order</pre>
       <table>
         <thead><tr><th>Table</th><th>Rows</th><th>Purpose</th></tr></thead>
         <tbody>
-          <tr><td><code>cra_qualified_donees</code></td><td>1.66M</td><td>Gifts from one registered charity to another. Each row has donor BN, donee BN + name (as the donor wrote it), amount, in-kind portion, and an &ldquo;associated&rdquo; flag. This is where the entity-resolution pipeline harvests extra name variants.</td></tr>
-          <tr><td><code>cra_non_qualified_donees</code></td><td>29K</td><td>Gifts to non-registered recipients, with stated purpose and cash/non-cash split.</td></tr>
-          <tr><td><code>cra_activities_outside_countries</code></td><td>45K</td><td>Countries in which the charity operated during the reporting year.</td></tr>
-          <tr><td><code>cra_activities_outside_details</code></td><td>25K</td><td>Additional fields about foreign activities (T3010 Section C5).</td></tr>
-          <tr><td><code>cra_resources_sent_outside</code></td><td>68K</td><td>Individual lines itemizing money/resources sent outside Canada: recipient name, amount, country.</td></tr>
-          <tr><td><code>cra_exported_goods</code></td><td>4K</td><td>Specific goods exported, with item name, value, destination.</td></tr>
-          <tr><td><code>cra_political_activity_desc</code></td><td>286</td><td>Free-text descriptions of political activities (when applicable).</td></tr>
-          <tr><td><code>cra_political_activity_funding</code></td><td>small</td><td>Funding lines for political activities.</td></tr>
+          <tr><td><code>cra_qualified_donees</code></td><td>1,664,343</td><td>Gifts from one registered charity to another. Each row has donor BN, donee BN + name (as the donor wrote it), amount, in-kind portion, and an &ldquo;associated&rdquo; flag. This is where the entity-resolution pipeline harvests extra name variants.</td></tr>
+          <tr><td><code>cra_non_qualified_donees</code></td><td>29,270</td><td>Gifts to non-registered recipients, with stated purpose and cash/non-cash split.</td></tr>
+          <tr><td><code>cra_activities_outside_countries</code></td><td>44,683</td><td>Countries in which the charity operated during the reporting year.</td></tr>
+          <tr><td><code>cra_activities_outside_details</code></td><td>25,139</td><td>Additional fields about foreign activities (T3010 Section C5).</td></tr>
+          <tr><td><code>cra_resources_sent_outside</code></td><td>68,028</td><td>Individual lines itemizing money/resources sent outside Canada: recipient name, amount, country.</td></tr>
+          <tr><td><code>cra_exported_goods</code></td><td>4,029</td><td>Specific goods exported, with item name, value, destination.</td></tr>
+          <tr><td><code>cra_political_activity_desc</code></td><td>313</td><td>Free-text descriptions of political activities (when applicable).</td></tr>
+          <tr><td><code>cra_political_activity_funding</code></td><td>0</td><td>Funding lines for political activities (empty in 2020&ndash;2024 extract).</td></tr>
           <tr><td><code>cra_political_activity_resources</code></td><td>234</td><td>Staff/volunteer/financial resources allocated to political activities.</td></tr>
         </tbody>
       </table>
@@ -595,24 +598,29 @@ npm run pipeline:rebuild              # reset + all stages in order</pre>
       <table>
         <thead><tr><th>Table</th><th>Rows</th><th>Purpose</th></tr></thead>
         <tbody>
-          <tr><td><code>overhead_by_charity</code></td><td>420K</td><td>Per-charity, per-year overhead ratios: strict (admin + fundraising) and broad (includes support), compared against revenue + program spending.</td></tr>
+          <tr><td><code>overhead_by_charity</code></td><td>420,021</td><td>Per-charity, per-year overhead ratios: strict (admin + fundraising) and broad (includes support), compared against revenue + program spending.</td></tr>
           <tr><td><code>overhead_by_year</code></td><td>5</td><td>Aggregated overhead by fiscal year across all charities.</td></tr>
           <tr><td><code>overhead_by_year_designation</code></td><td>16</td><td>Aggregated overhead broken down by designation (A/B/C).</td></tr>
-          <tr><td><code>govt_funding_by_charity</code></td><td>167K</td><td>Per-charity, per-year split of federal / provincial / municipal government funding, plus the government share of revenue.</td></tr>
+          <tr><td><code>govt_funding_by_charity</code></td><td>166,968</td><td>Per-charity, per-year split of federal / provincial / municipal government funding, plus the government share of revenue.</td></tr>
           <tr><td><code>govt_funding_by_year</code></td><td>5</td><td>Aggregated government-funding share by year.</td></tr>
-          <tr><td><code>loops</code>, <code>johnson_cycles</code>, <code>partitioned_cycles</code></td><td>5.8K, 2K, 108</td><td>Detected circular-gifting cycles at 2-6 hops (three detection approaches: brute-force, Johnson&rsquo;s, SCC-partitioned).</td></tr>
-          <tr><td><code>loop_participants</code></td><td>30K</td><td>BNs that appear in any detected cycle, with position and neighbors.</td></tr>
-          <tr><td><code>loop_edges</code>, <code>loop_edge_year_flows</code></td><td>54K, 30K</td><td>Edge-level amounts across cycles, broken down by fiscal year.</td></tr>
-          <tr><td><code>loop_universe</code>, <code>loop_charity_financials</code></td><td>1.5K, 1.5K</td><td>Summary of each BN&rsquo;s cycle participation (2/3/4/5/6-hop counts) plus associated financials.</td></tr>
-          <tr><td><code>loop_financials</code></td><td>5.8K</td><td>Financial metadata per cycle: bottleneck amount, total flow, year range, whether the cycle is same-year or cross-year.</td></tr>
-          <tr><td><code>scc_components</code>, <code>scc_summary</code></td><td>10K, 347</td><td>Strongly-connected components in the charity gift graph (Tarjan&rsquo;s algorithm).</td></tr>
-          <tr><td><code>matrix_census</code></td><td>10K</td><td>Matrix-power walk census for cross-validation (N-hop reachability counts per BN).</td></tr>
+          <tr><td><code>loops</code></td><td>5,808</td><td>Brute-force ground-truth detected circular-gifting cycles at 2&ndash;6 hops (temporal window &plusmn;1 year).</td></tr>
+          <tr><td><code>johnson_cycles</code></td><td>4,601</td><td>Johnson&rsquo;s algorithm cycle enumeration on the full graph (cross-validation against <code>loops</code>).</td></tr>
+          <tr><td><code>partitioned_cycles</code></td><td>108</td><td>SCC-partitioned Johnson&rsquo;s with hub removal (fast, misses cycles routing through mega-hubs).</td></tr>
+          <tr><td><code>loop_participants</code></td><td>30,003</td><td>BNs that appear in any detected cycle, with position and neighbors.</td></tr>
+          <tr><td><code>loop_edges</code></td><td>53,771</td><td>Pruned gift-edge graph (after iterative dead-end removal).</td></tr>
+          <tr><td><code>loop_edge_year_flows</code></td><td>30,003</td><td>Edge-level amounts restricted to each loop&rsquo;s year window.</td></tr>
+          <tr><td><code>loop_universe</code></td><td>1,501</td><td>Per-BN summary of cycle participation (2/3/4/5/6-hop counts) and risk inputs.</td></tr>
+          <tr><td><code>loop_charity_financials</code></td><td>1,501</td><td>Per-BN overhead proxy + loop-related inflow / outflow.</td></tr>
+          <tr><td><code>loop_financials</code></td><td>5,808</td><td>Financial metadata per cycle: bottleneck amount, total flow, year range, same-year vs cross-year.</td></tr>
+          <tr><td><code>scc_components</code></td><td>10,177</td><td>Strongly-connected components in the charity gift graph (Tarjan&rsquo;s algorithm).</td></tr>
+          <tr><td><code>scc_summary</code></td><td>347</td><td>Per-SCC aggregate statistics.</td></tr>
+          <tr><td><code>matrix_census</code></td><td>10,177</td><td>Matrix-power walk census for cross-validation (N-hop reachability counts per BN).</td></tr>
           <tr><td><code>identified_hubs</code></td><td>20</td><td>Entities flagged as &ldquo;hubs&rdquo; in the gift-flow network based on in/out-degree and total flow.</td></tr>
-          <tr><td><code>t3010_sanity_violations</code></td><td>42K</td><td>Generic sanity-check failures (negative totals, unreasonable ratios, etc.) per filing.</td></tr>
-          <tr><td><code>t3010_arithmetic_violations</code></td><td>52K</td><td>Arithmetic mismatches between T3010 totals and the sum of their components.</td></tr>
-          <tr><td><code>t3010_impossibility_violations</code></td><td>24K</td><td>Logically impossible combinations (e.g. more gifts declared as in-kind than total gifts).</td></tr>
-          <tr><td><code>donee_name_quality</code></td><td>440K</td><td>Scored name-similarity check between donor-written donee names (qualified_donees) and the canonical legal name from cra_identification. Used to detect transcription errors.</td></tr>
-          <tr><td><code>_dnq_canonical</code></td><td>91K</td><td>Canonical donee-name lookup used by the donee_name_quality pipeline.</td></tr>
+          <tr><td><code>t3010_impossibilities</code></td><td>54,010</td><td>Direct violations of T3010 form arithmetic identities, cross-schedule equalities, and Schedule 3 dependencies (10 rules, each traceable to specific form-line or Open Data Dictionary v2.0 text).</td></tr>
+          <tr><td><code>t3010_plausibility_flags</code></td><td>1,075</td><td>Plausibility flags layered on top of the strict-rule impossibilities.</td></tr>
+          <tr><td><code>t3010_completeness_issues</code></td><td>0</td><td>Reserved for completeness-rule findings; currently empty.</td></tr>
+          <tr><td><code>donee_name_quality</code></td><td>439,867</td><td>Scored name-similarity check between donor-written donee names (<code>cra_qualified_donees</code>) and the canonical legal name from <code>cra_identification</code>. Used to detect transcription errors and BN-name mismatches.</td></tr>
+          <tr><td><code>_dnq_canonical</code></td><td>91,129</td><td>Canonical donee-name lookup used by the donee_name_quality pipeline.</td></tr>
         </tbody>
       </table>
 
@@ -640,13 +648,13 @@ npm run pipeline:rebuild              # reset + all stages in order</pre>
       </table>
 
       <!-- ── FED ── -->
-      <h3 style="color: var(--tab-fed)">FED &mdash; <code>fed</code> schema (6 tables + 3 views, ~1.3M rows)</h3>
+      <h3 style="color: var(--tab-fed)">FED &mdash; <code>fed</code> schema (6 tables + 3 views, ~1.28M rows)</h3>
 
       <h4>Primary data</h4>
       <table>
         <thead><tr><th>Table</th><th>Rows</th><th>Purpose</th></tr></thead>
         <tbody>
-          <tr><td><code>grants_contributions</code></td><td>1.28M</td><td>One row per federal grant or contribution agreement (or amendment). Fields include recipient legal name, business number (when known), department (<code>owner_org</code>), agreement value, program name + purpose (both languages), province/city, agreement start + end dates, federal riding. Amendments share a <code>ref_number</code> with the original.</td></tr>
+          <tr><td><code>grants_contributions</code></td><td>1,275,521</td><td>One row per federal grant or contribution agreement (or amendment). Fields include recipient legal name, business number (when known), department (<code>owner_org</code>), agreement value, program name + purpose (both languages), province/city, agreement start + end dates, federal riding, <code>is_amendment</code>. Amendments share a <code>ref_number</code> with the original. Per TBS spec, <code>agreement_value</code> is a cumulative running total &mdash; use <code>vw_agreement_current</code> or <code>vw_agreement_originals</code> to avoid double-counting.</td></tr>
         </tbody>
       </table>
 
@@ -673,16 +681,16 @@ npm run pipeline:rebuild              # reset + all stages in order</pre>
       </table>
 
       <!-- ── AB ── -->
-      <h3 style="color: var(--tab-ab)">AB &mdash; <code>ab</code> schema (9 tables + 3 views, ~2.6M rows)</h3>
+      <h3 style="color: var(--tab-ab)">AB &mdash; <code>ab</code> schema (9 tables + 3 views, ~2.61M rows)</h3>
 
       <h4>Primary data</h4>
       <table>
         <thead><tr><th>Table</th><th>Rows</th><th>Purpose</th></tr></thead>
         <tbody>
-          <tr><td><code>ab_grants</code></td><td>1.99M</td><td>Alberta government grant payments (fiscal years 2014-2015 through 2025-2026). Fields include ministry, business unit, recipient, program name, amount, payment date, fiscal year (<code>display_fiscal_year</code> format "YYYY - YYYY"), lottery-fund flag.</td></tr>
-          <tr><td><code>ab_contracts</code></td><td>67K</td><td>Blue Book (open-procurement) contracts. Recipient, amount, ministry, fiscal year.</td></tr>
-          <tr><td><code>ab_sole_source</code></td><td>15K</td><td>Sole-source (non-competitive) contracts. Vendor + department addresses, contract number, start/end dates, amount, permitted-situation justification.</td></tr>
-          <tr><td><code>ab_non_profit</code></td><td>69K</td><td>Alberta non-profit societies registry: legal name, type, status, registration date, registered address.</td></tr>
+          <tr><td><code>ab_grants</code></td><td>1,986,676</td><td>Alberta government grant payments (fiscal years 2014-2015 through 2025-2026). Fields include ministry, business unit, recipient, program name, amount, payment date, fiscal year (<code>display_fiscal_year</code> format "YYYY - YYYY"), lottery-fund flag.</td></tr>
+          <tr><td><code>ab_contracts</code></td><td>67,079</td><td>Blue Book (open-procurement) contracts. Recipient, amount, ministry, fiscal year.</td></tr>
+          <tr><td><code>ab_sole_source</code></td><td>15,533</td><td>Sole-source (non-competitive) contracts. Vendor + department addresses, contract number, start/end dates, amount, permitted-situation justification.</td></tr>
+          <tr><td><code>ab_non_profit</code></td><td>69,271</td><td>Alberta non-profit societies registry: legal name, type, status, registration date, registered address.</td></tr>
         </tbody>
       </table>
 
@@ -690,10 +698,10 @@ npm run pipeline:rebuild              # reset + all stages in order</pre>
       <table>
         <thead><tr><th>Table</th><th>Rows</th><th>Purpose</th></tr></thead>
         <tbody>
-          <tr><td><code>ab_grants_ministries</code></td><td>321</td><td>Distinct ministries appearing in ab_grants, with count + total.</td></tr>
-          <tr><td><code>ab_grants_programs</code></td><td>17K</td><td>Distinct program names with counts, totals, date ranges.</td></tr>
-          <tr><td><code>ab_grants_recipients</code></td><td>420K</td><td>Distinct grant recipients with rollup totals.</td></tr>
-          <tr><td><code>ab_grants_fiscal_years</code></td><td>small</td><td>Fiscal-year rollup.</td></tr>
+          <tr><td><code>ab_grants_ministries</code></td><td>352</td><td>Distinct ministries appearing in <code>ab_grants</code>, with count + total.</td></tr>
+          <tr><td><code>ab_grants_programs</code></td><td>20,208</td><td>Distinct program names with counts, totals, date ranges.</td></tr>
+          <tr><td><code>ab_grants_recipients</code></td><td>452,900</td><td>Distinct grant recipients with rollup totals.</td></tr>
+          <tr><td><code>ab_grants_fiscal_years</code></td><td>12</td><td>Per-fiscal-year rollup, one row per fiscal year (2014-2015 through 2025-2026).</td></tr>
         </tbody>
       </table>
 
@@ -709,24 +717,26 @@ npm run pipeline:rebuild              # reset + all stages in order</pre>
       </table>
 
       <!-- ── GENERAL ── -->
-      <h3 style="color: var(--tab-general)">general &mdash; <code>general</code> schema (13 tables + 2 views, ~6M rows)</h3>
+      <h3 style="color: var(--tab-general)">general &mdash; <code>general</code> schema (14 tables + 2 views, ~10.5M rows)</h3>
 
-      <h4>Reference data</h4>
-      <table>
-        <thead><tr><th>Table</th><th>Purpose</th></tr></thead>
-        <tbody>
-          <tr><td><code>ministries</code></td><td>27 current Alberta government ministries with short codes, ministers, deputy ministers, effective dates.</td></tr>
-        </tbody>
-      </table>
-
-      <h4>Entity resolution pipeline — state</h4>
+      <h4>Reference data &mdash; Alberta ministries</h4>
       <table>
         <thead><tr><th>Table</th><th>Rows</th><th>Purpose</th></tr></thead>
         <tbody>
-          <tr><td><code>entities</code></td><td>852K</td><td>One row per resolved entity (including those later absorbed via merge). Canonical name, alternate names, BN root + all 15-char BN variants, entity type, dataset_sources array, <code>merged_into</code> (for soft-deleted absorbed entities), <code>norm_canonical</code>, status, JSONB metadata.</td></tr>
-          <tr><td><code>entity_source_links</code></td><td>3.28M</td><td>Links each source record (in CRA/FED/AB schemas) to its resolved entity. <code>(source_schema, source_table, source_pk)</code> identifies the source row; <code>source_name</code> preserves the name as originally written; <code>match_method</code> records how it was linked.</td></tr>
-          <tr><td><code>entity_resolution_log</code></td><td>883K</td><td>Per-name matching progress. <code>UNIQUE (source_schema, source_table, source_name)</code>. Status tracks pending/matched/created/error for resumability.</td></tr>
-          <tr><td><code>resolution_batches</code></td><td>small</td><td>Per-run metadata: when the pipeline started/completed, processed/matched/errored counts.</td></tr>
+          <tr><td><code>ministries</code></td><td>27</td><td>Current Alberta government ministries with short codes, ministers, deputy ministers, effective dates.</td></tr>
+          <tr><td><code>ministries_crosswalk</code></td><td>162</td><td>Mapping of historical ministry names (as they appear in <code>ab_grants.ministry</code> and <code>ab_contracts.ministry</code>) to the current canonical ministry.</td></tr>
+          <tr><td><code>ministries_history</code></td><td>62</td><td>Name-change timeline: each prior ministry name with first/last year seen and the successor ministry it was renamed to.</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Entity resolution pipeline &mdash; state</h4>
+      <table>
+        <thead><tr><th>Table</th><th>Rows</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>entities</code></td><td>926,670</td><td>One row per resolved entity (including those later absorbed via merge). Canonical name, alternate names, BN root + all 15-char BN variants, entity type, dataset_sources array, <code>merged_into</code> (for soft-deleted absorbed entities), <code>norm_canonical</code>, status (<code>draft</code>/<code>confirmed</code>/<code>merged</code>), JSONB metadata.</td></tr>
+          <tr><td><code>entity_source_links</code></td><td>5,161,245</td><td>Links each source record (in CRA/FED/AB schemas) to its resolved entity. <code>(source_schema, source_table, source_pk)</code> identifies the source row; <code>source_name</code> preserves the name as originally written; <code>match_method</code> records how it was linked.</td></tr>
+          <tr><td><code>entity_resolution_log</code></td><td>1,266,141</td><td>Per-name matching progress. <code>UNIQUE (source_schema, source_table, source_name)</code>. Status tracks pending/matched/created/error for resumability.</td></tr>
+          <tr><td><code>resolution_batches</code></td><td>variable</td><td>Per-run metadata: when the pipeline started/completed, processed/matched/errored counts.</td></tr>
         </tbody>
       </table>
 
@@ -734,8 +744,9 @@ npm run pipeline:rebuild              # reset + all stages in order</pre>
       <table>
         <thead><tr><th>Table</th><th>Rows</th><th>Purpose</th></tr></thead>
         <tbody>
-          <tr><td><code>entity_merge_candidates</code></td><td>1.47M</td><td>Pairwise candidates from the 5 detection tiers + smart-match. LLM reviews each one and writes verdict (SAME / RELATED / DIFFERENT / UNCERTAIN) + confidence + reasoning. Unique on the unordered pair.</td></tr>
-          <tr><td><code>entity_merges</code></td><td>50K</td><td>Audit trail for every merge executed: survivor, absorbed, candidate_id that triggered it, merge_method, names/BNs added, links redirected count, timestamp.</td></tr>
+          <tr><td><code>entity_merge_candidates</code></td><td>1,643,060</td><td>Pairwise candidates from the 5 detection tiers + smart-match. LLM reviews each one and writes verdict (SAME / RELATED / DIFFERENT / UNCERTAIN) + confidence + reasoning. Unique on the unordered pair.</td></tr>
+          <tr><td><code>entity_merges</code></td><td>66,147</td><td>Audit trail for every merge executed: survivor, absorbed, candidate_id that triggered it, merge_method, names/BNs added, links redirected count, timestamp.</td></tr>
+          <tr><td><code>donee_trigram_candidates</code></td><td>variable</td><td>Stage 8 staging table: unlinked <code>cra_qualified_donees</code> names paired with their best trigram neighbour above threshold. Reviewed by the LLM and, on SAME verdicts, appended to the matched entity&rsquo;s aliases with <code>match_method = 'donee_trigram_fallback'</code> for full reversibility.</td></tr>
         </tbody>
       </table>
 
@@ -743,7 +754,7 @@ npm run pipeline:rebuild              # reset + all stages in order</pre>
       <table>
         <thead><tr><th>Table</th><th>Rows</th><th>Purpose</th></tr></thead>
         <tbody>
-          <tr><td><code>entity_golden_records</code></td><td>794K</td><td><strong>The authoritative final table.</strong> One row per active real-world organization. Canonical name, every alias with source provenance (JSONB), BN variants, dataset_sources, source_summary per schema.table, deduplicated addresses, CRA / FED / AB profile JSONBs, related entities (LLM RELATED verdicts), merge_history, <code>llm_authored</code> raw response, confidence, status.</td></tr>
+          <tr><td><code>entity_golden_records</code></td><td>851,300</td><td><strong>The authoritative final table.</strong> One row per active real-world organization. Canonical name, every alias with source provenance (JSONB), BN variants, dataset_sources, source_summary per schema.table, deduplicated addresses, CRA / FED / AB profile JSONBs, related entities (LLM RELATED verdicts), merge_history, <code>llm_authored</code> raw response, confidence, status.</td></tr>
         </tbody>
       </table>
 
@@ -751,7 +762,7 @@ npm run pipeline:rebuild              # reset + all stages in order</pre>
       <table>
         <thead><tr><th>Table</th><th>Rows</th><th>Purpose</th></tr></thead>
         <tbody>
-          <tr><td><code>splink_predictions</code></td><td>532K</td><td>Pairwise match probabilities from Splink&rsquo;s Fellegi-Sunter model (run threshold ≥ 0.40). Each row has left record (source_schema.source_table + record_id), right record, <code>match_probability</code>, <code>match_weight</code>, connected-component <code>cluster_id</code>, and feature-level gamma values. 06-detect-candidates Tier 5 uses this.</td></tr>
+          <tr><td><code>splink_predictions</code></td><td>540,640</td><td>Pairwise match probabilities from Splink&rsquo;s Fellegi-Sunter model (run threshold &ge; 0.40). Each row has left record (source_schema.source_table + record_id), right record, <code>match_probability</code>, <code>match_weight</code>, connected-component <code>cluster_id</code>, and feature-level gamma values. <code>06-detect-candidates</code> Tier 5 uses this.</td></tr>
           <tr><td><code>splink_aliases</code></td><td>variable</td><td>Name variants per cluster with source provenance. Enriches golden-record alias lists with probabilistic matches the deterministic cascade missed.</td></tr>
           <tr><td><code>splink_build_metadata</code></td><td>1 per run</td><td>One row per Splink run: start/completion, Splink version, threshold, total records + predictions + clusters, config.</td></tr>
         </tbody>
@@ -779,58 +790,116 @@ npm run pipeline:rebuild              # reset + all stages in order</pre>
       </table>
     </section>
 
+    <!-- ═══════ LOCAL DB ═══════ -->
+    <section :class="{active: tab==='local-db'}">
+      <h2>Local Database Recreation Kit</h2>
+      <p>The <code>.local-db/</code> directory contains everything needed to recreate the hackathon database in your own PostgreSQL instance: the full DDL (split into pre-data and post-data), a manifest of every table and row count, and export/import scripts that auto-discover tables via <code>information_schema</code>.</p>
+
+      <div class="card warning">
+        <h4>Data bundle is separate</h4>
+        <p>The JSONL row data (~13&nbsp;GB across all four schemas) is not in the repo &mdash; it ships out-of-band (GitHub release / file server). Download the bundle and unpack it under <code>.local-db/data/</code> so the directory structure matches <code>data/{cra,fed,ab,general}/*.jsonl</code>. The small artifacts (DDL, manifest, scripts, README) <strong>are</strong> committed, so the repository alone documents the full schema.</p>
+      </div>
+
+      <h3>Why JSONL, not CSV</h3>
+      <p>JSONL was chosen over CSV so that <code>jsonb</code> columns, <code>text[]</code> arrays, NULLs, and strings with embedded newlines, commas, and quotes all round-trip through export/import without escape-layer games. One row per line, keyed by column name.</p>
+
+      <h3>What ships in <code>.local-db/</code></h3>
+      <table>
+        <thead><tr><th>Path</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>README.md</code></td><td>Quick-start instructions, import options, expected runtime.</td></tr>
+          <tr><td><code>export.js</code></td><td>(Maintainers) Dumps the live DB to <code>schemas/</code> DDL and <code>data/*.jsonl</code> files.</td></tr>
+          <tr><td><code>import.js</code></td><td>(Participants) Recreates the DB in a local Postgres. Auto-discovers tables; supports <code>--schema</code>, <code>--schema-only</code>, <code>--data-only</code>, <code>--batch-size</code>, <code>--drop</code>.</td></tr>
+          <tr><td><code>manifest.json</code></td><td>Authoritative table inventory with row counts + column metadata. Verified by import after load.</td></tr>
+          <tr><td><code>schemas/{cra,fed,ab,general}.sql</code></td><td>Pre-data DDL: <code>CREATE SCHEMA</code>, sequences, tables (with <code>nextval</code> defaults), indexes, views.</td></tr>
+          <tr><td><code>schemas/{cra,fed,ab,general}_post.sql</code></td><td>Post-data DDL: unique / check / foreign-key constraints, and <code>setval()</code> statements to sync sequences with loaded row counts.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Dataset totals (from the manifest)</h3>
+      <table>
+        <thead><tr><th>Schema</th><th>Tables + views</th><th>Rows</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>cra</code></td><td>49 tables + 3 views</td><td>~8.76M</td><td>T3010 raw data (2020&ndash;2024) + 24 accountability-analysis tables</td></tr>
+          <tr><td><code>fed</code></td><td>6 tables + 3 views</td><td>~1.28M</td><td>Proactive-publication grants &amp; contributions</td></tr>
+          <tr><td><code>ab</code></td><td>9 tables + 3 views</td><td>~2.61M</td><td>Alberta grants, contracts, sole-source, non-profit registry</td></tr>
+          <tr><td><code>general</code></td><td>14 tables + 2 views</td><td>~10.46M</td><td>Cross-dataset entity resolution (entities, source links, golden records, Splink output, ministries reference)</td></tr>
+          <tr><td colspan="2"><strong>Total across schemas</strong></td><td><strong>~23.1M rows</strong></td><td>Full load typically ~20&ndash;30 min on local Postgres, ~1&ndash;3 hours to a remote instance</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Quick start</h3>
+      <pre>createdb hackathon                                     # or via your Postgres admin
+cd .local-db &amp;&amp; npm install
+DB_CONNECTION_STRING=postgresql://user:pass@localhost/hackathon npm run import</pre>
+
+      <h3>Prerequisites</h3>
+      <ul>
+        <li>PostgreSQL 14+, with permission to <code>CREATE EXTENSION pg_trgm</code> and <code>CREATE EXTENSION fuzzystrmatch</code>.</li>
+        <li>Node.js 18+.</li>
+        <li>A DB user with <code>CREATE</code> on the target database and <code>INSERT</code> on the tables being loaded.</li>
+      </ul>
+
+      <p>Full details: <a href=".local-db/README.md">.local-db/README.md</a></p>
+    </section>
+
     <!-- ═══════ REPORTS ═══════ -->
     <section :class="{active: tab==='reports'}">
-      <h2>Reports Reference</h2>
-      <p>All analysis scripts output reports in both JSON (structured) and TXT (human-readable) formats to <code>data/reports/</code> in each module.</p>
+      <h2>Analysis outputs</h2>
+      <p>Each module ships advanced analysis scripts that write human-readable Markdown / TXT reports and machine-readable JSON to its own reports folder when you run them. Those folders are gitignored &mdash; you generate them locally &mdash; but every analysis script also persists its findings to a table under its schema, so the same results can be queried directly from SQL without running anything.</p>
 
-      <h3>AB Reports (<code>AB/data/reports/</code>)</h3>
+      <h3>AB &mdash; six analysis scripts</h3>
       <table>
-        <thead><tr><th>Report</th><th>Script</th><th>Content</th></tr></thead>
+        <thead><tr><th>Command</th><th>What it produces</th></tr></thead>
         <tbody>
-          <tr><td><code>data-quality-audit.*</code></td><td><code>analyze:quality</code></td><td>NULL rates, empty strings, duplicates, amount outliers, fiscal year coverage</td></tr>
-          <tr><td><code>summary-analysis.*</code></td><td><code>analyze:summary</code></td><td>Ministry/FY breakdowns, top recipients, program distribution, cross-dataset overlap</td></tr>
-          <tr><td><code>deep-insights.*</code></td><td><code>analyze:insights</code></td><td>Vendor HHI, sole-source rates, dissolved NPO grants, ministry name mapping</td></tr>
-          <tr><td><code>sole-source-deep-dive.*</code></td><td><code>analyze:sole-source</code></td><td>5 scenarios: repeat vendors, pipeline, splitting, geography, outliers</td></tr>
-          <tr><td><code>grants-contracts-scenarios.*</code></td><td><code>analyze:scenarios</code></td><td>5 scenarios: ratios, HHI, volatility, lottery, payment timing</td></tr>
-          <tr><td><code>non-profit-trends.*</code></td><td><code>analyze:non-profit</code></td><td>Registration trends, survival analysis, entity type evolution, sector health</td></tr>
+          <tr><td><code>npm run analyze:quality</code></td><td>Data-quality audit: NULL rates, empty strings, duplicates, amount outliers, fiscal-year coverage.</td></tr>
+          <tr><td><code>npm run analyze:summary</code></td><td>Ministry-by-fiscal-year breakdowns, top recipients, program distribution, cross-dataset overlap.</td></tr>
+          <tr><td><code>npm run analyze:insights</code></td><td>Vendor HHI, sole-source rates, dissolved-NPO grants, ministry name mapping.</td></tr>
+          <tr><td><code>npm run analyze:sole-source</code></td><td>Five scenarios: repeat vendors, sole-source&rarr;Blue Book pipeline, contract splitting, geographic concentration, duration/value outliers.</td></tr>
+          <tr><td><code>npm run analyze:scenarios</code></td><td>Five grant/contract scenarios: grant-to-contract ratio, recipient HHI, funding volatility, lottery funding, payment timing.</td></tr>
+          <tr><td><code>npm run analyze:non-profit</code></td><td>Lifecycle trends, survival analysis, entity-type evolution, sector health.</td></tr>
+          <tr><td><code>npm run analyze:all</code></td><td>Runs all six sequentially.</td></tr>
         </tbody>
       </table>
 
-      <h3>FED Reports (<code>FED/data/reports/</code>)</h3>
+      <h3>FED &mdash; eight analysis scripts</h3>
       <table>
-        <thead><tr><th>Report</th><th>Content</th></tr></thead>
+        <thead><tr><th>Command</th><th>What it produces</th></tr></thead>
         <tbody>
-          <tr><td><code>risk-register.*</code></td><td>109K+ entities scored 0-35 across 7 risk dimensions</td></tr>
-          <tr><td><code>provincial-equity.*</code></td><td>Per-capita provincial funding analysis</td></tr>
-          <tr><td><code>for-profit-deep-dive.*</code></td><td>For-profit recipient concentration</td></tr>
-          <tr><td><code>amendment-creep.*</code></td><td>Amendment patterns and value creep</td></tr>
-          <tr><td><code>recipient-concentration.*</code></td><td>Herfindahl-Hirschman Index analysis</td></tr>
-          <tr><td><code>zombie-and-ghost.*</code></td><td>Inactive recipients and identity risk</td></tr>
-          <tr><td><code>individual-recipients.*</code></td><td>Individual grant recipient analysis</td></tr>
-          <tr><td><code>entity-export.*</code></td><td>Flagged entities and for-profit recipients (CSV/JSON)</td></tr>
-          <tr><td><code>dashboard.json</code></td><td>Summary statistics for dashboarding</td></tr>
+          <tr><td><code>npm run analyze:equity</code></td><td>Per-capita provincial funding analysis (all ten provinces + three territories).</td></tr>
+          <tr><td><code>npm run analyze:forprofit</code></td><td>For-profit recipient deep-dive.</td></tr>
+          <tr><td><code>npm run analyze:amendments</code></td><td>Amendment-creep detection: rate, value growth, duration extensions.</td></tr>
+          <tr><td><code>npm run analyze:concentration</code></td><td>Vendor / recipient concentration (Herfindahl-Hirschman Index, single-department dominance).</td></tr>
+          <tr><td><code>npm run analyze:zombies</code></td><td>Zombie recipients (no new grants recently) and ghost-capacity entities.</td></tr>
+          <tr><td><code>npm run analyze:export</code></td><td>Entity export (CSV) for external adverse-media lookups.</td></tr>
+          <tr><td><code>npm run analyze:risk</code></td><td>Comprehensive 7-dimension risk register (0&ndash;35 scale): cessation, identity, amendment, concentration, dependency, opacity, scale.</td></tr>
+          <tr><td><code>npm run analyze:individuals</code></td><td>Individual grant recipient analysis.</td></tr>
+          <tr><td><code>npm run analyze:all</code></td><td>Runs all eight sequentially.</td></tr>
+          <tr><td><code>npm run dashboard</code></td><td>Summary statistics across the whole <code>fed</code> schema.</td></tr>
         </tbody>
       </table>
 
-      <h3>CRA Reports (<code>CRA/data/reports/</code>)</h3>
+      <h3>CRA &mdash; circular-gifting and data-quality pipelines</h3>
       <table>
-        <thead><tr><th>Report</th><th>Content</th></tr></thead>
+        <thead><tr><th>Command</th><th>What it produces</th><th>Persisted table</th></tr></thead>
         <tbody>
-          <tr><td><code>loops-*-hop.json</code></td><td>Circular gifting cycles detected at 2-6 hops</td></tr>
-          <tr><td><code>loop-universe.json</code></td><td>All charity BNs participating in any cycle</td></tr>
-          <tr><td><code>universe-scored.*</code></td><td>Full scored universe (0-30 per charity)</td></tr>
-          <tr><td><code>universe-top50.txt</code></td><td>Top 50 highest-scoring entities with factor breakdown</td></tr>
+          <tr><td><code>npm run analyze:loops</code></td><td>Brute-force 2&ndash;6-hop cycle detection (ground truth). Temporal window &plusmn;1 year.</td><td><code>cra.loops</code>, <code>cra.loop_participants</code>, <code>cra.loop_edges</code></td></tr>
+          <tr><td><code>npm run analyze:scc</code></td><td>Tarjan SCC decomposition of the charity gift graph.</td><td><code>cra.scc_components</code>, <code>cra.scc_summary</code></td></tr>
+          <tr><td><code>npm run analyze:partitioned</code></td><td>SCC-partitioned Johnson&rsquo;s with hub removal (fast complement to brute force).</td><td><code>cra.partitioned_cycles</code>, <code>cra.identified_hubs</code></td></tr>
+          <tr><td><code>npm run analyze:johnson</code></td><td>Johnson&rsquo;s algorithm on the full graph (cross-validation).</td><td><code>cra.johnson_cycles</code></td></tr>
+          <tr><td><code>npm run analyze:matrix</code></td><td>Matrix-power walk census (cross-validates <code>loops</code> / <code>johnson_cycles</code>).</td><td><code>cra.matrix_census</code></td></tr>
+          <tr><td><code>npm run analyze:financial</code></td><td>Per-loop and per-charity financial rollup restricted to each loop&rsquo;s year window.</td><td><code>cra.loop_financials</code>, <code>cra.loop_edge_year_flows</code>, <code>cra.loop_charity_financials</code>, <code>cra.loop_universe</code></td></tr>
+          <tr><td><code>npm run analyze:score</code></td><td>Deterministic 0&ndash;30 risk scoring (circular + financial + temporal).</td><td><code>cra.loop_universe</code> (score columns)</td></tr>
+          <tr><td><code>npm run analyze:all</code></td><td>Full pipeline in order.</td><td>&mdash;</td></tr>
+          <tr><td><code>npm run data-quality</code></td><td>Three data-quality scripts (BN&harr;name mismatches, T3010 arithmetic impossibilities, identification-backfill check). Every rule traced to an explicit line in the T3010 form or the CRA Open Data Dictionary v2.0.</td><td><code>cra.donee_name_quality</code>, <code>cra.t3010_impossibilities</code>, <code>cra.identification_name_history</code></td></tr>
+          <tr><td><code>npm run lookup -- --name "..."</code></td><td>Interactive per-charity network lookup (outgoing / incoming gifts, loops, shared directors).</td><td>&mdash;</td></tr>
+          <tr><td><code>npm run risk -- --bn ...</code></td><td>Interactive per-charity risk report with scored factors and multi-year financials.</td><td>&mdash;</td></tr>
         </tbody>
       </table>
 
-      <h3>General Reports (<code>general/reports/</code>)</h3>
-      <table>
-        <thead><tr><th>Report</th><th>Content</th></tr></thead>
-        <tbody>
-          <tr><td><code>cross-match-results.*</code></td><td>Fuzzy cross-dataset matching results (non-profit vs grants, sole-source vs contracts, etc.)</td></tr>
-        </tbody>
-      </table>
+      <h3>General &mdash; entity-resolution pipeline</h3>
+      <p>The <code>general</code> pipeline persists everything to tables, not report files. Pipeline state lives in <code>entities</code>, <code>entity_source_links</code>, <code>entity_merge_candidates</code>, <code>entity_merges</code>, <code>entity_golden_records</code>, and the <code>splink_*</code> tables. Operate the pipeline through <code>npm run entities:dashboard</code> (port 3800) and investigate specific organizations through <code>npm run entities:dossier</code> (port 3801). A reference-sample validator is also available:</p>
+      <pre>npm run entities:compare:splink   # 500-entity reference sample against the live pipeline</pre>
     </section>
 
   </main>
