@@ -51,3 +51,7 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Claude Code local settings at repo root (zombie-agent/src/workspace/.claude
+# holds intentional workspace skills and is committed — only the root one is local)
+/.claude/

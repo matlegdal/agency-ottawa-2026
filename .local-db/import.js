@@ -161,10 +161,10 @@ async function importTableData(client, schema, tableInfo, batchSize) {
   const jsonlPath = path.join(IMPORT_DIR, 'data', schema, tableInfo.file);
   if (!fs.existsSync(jsonlPath)) {
     console.log(`    Skipping: ${tableInfo.file} not found`);
-    return 0;
+    return { imported: 0, rowErrors: 0, firstError: null };
   }
 
-  if (tableInfo.rows === 0) return 0;
+  if (tableInfo.rows === 0) return { imported: 0, rowErrors: 0, firstError: null };
 
   const jsonbCols = await getJsonbColumns(client, schema, tableInfo.table);
 
@@ -183,28 +183,33 @@ async function importTableData(client, schema, tableInfo, batchSize) {
 
   async function flushBatch() {
     if (batch.length === 0) return;
-    const placeholders = batch.map((row, ri) => {
-      return '(' + row.map((_, ci) => `$${ri * columns.length + ci + 1}`).join(', ') + ')';
-    }).join(', ');
-    const values = batch.flat();
-
-    try {
-      await client.query(
-        `INSERT INTO ${schema}.${tableInfo.table} (${colList}) VALUES ${placeholders} ON CONFLICT DO NOTHING`,
-        values
-      );
-    } catch (e) {
-      // Fallback to row-by-row so one bad row doesn't poison the batch.
-      for (const row of batch) {
-        const singlePlaceholders = '(' + row.map((_, ci) => `$${ci + 1}`).join(', ') + ')';
-        try {
-          await client.query(
-            `INSERT INTO ${schema}.${tableInfo.table} (${colList}) VALUES ${singlePlaceholders} ON CONFLICT DO NOTHING`,
-            row
-          );
-        } catch (e2) {
-          rowErrors++;
-          if (!firstError) firstError = { message: e2.message.split('\n')[0], code: e2.code };
+    // Postgres caps bind parameters at 65535 per query (16-bit protocol field).
+    // A 5000-row batch × 40-col table = 200k params and the whole batch fails,
+    // dropping to row-by-row. Chunk by column count to stay safely under.
+    const maxRowsPerChunk = Math.max(1, Math.floor(65000 / columns.length));
+    for (let start = 0; start < batch.length; start += maxRowsPerChunk) {
+      const chunk = batch.slice(start, start + maxRowsPerChunk);
+      const placeholders = chunk.map((row, ri) =>
+        '(' + row.map((_, ci) => `$${ri * columns.length + ci + 1}`).join(', ') + ')'
+      ).join(', ');
+      try {
+        await client.query(
+          `INSERT INTO ${schema}.${tableInfo.table} (${colList}) VALUES ${placeholders} ON CONFLICT DO NOTHING`,
+          chunk.flat()
+        );
+      } catch (e) {
+        // Fallback to row-by-row so one bad row doesn't poison the chunk.
+        for (const row of chunk) {
+          const singlePlaceholders = '(' + row.map((_, ci) => `$${ci + 1}`).join(', ') + ')';
+          try {
+            await client.query(
+              `INSERT INTO ${schema}.${tableInfo.table} (${colList}) VALUES ${singlePlaceholders} ON CONFLICT DO NOTHING`,
+              row
+            );
+          } catch (e2) {
+            rowErrors++;
+            if (!firstError) firstError = { message: e2.message.split('\n')[0], code: e2.code };
+          }
         }
       }
     }

@@ -1,0 +1,32 @@
+[project]
+name = "zombie-agent"
+version = "0.1.0"
+description = "Agentic system for the Zombie Recipients challenge (AI For Accountability Hackathon 2026)"
+requires-python = ">=3.11"
+authors = [{ name = "Hackathon Team" }]
+
+dependencies = [
+    "claude-agent-sdk==0.1.48",
+    "fastapi[all]>=0.116.1",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic-settings>=2.7.0",
+    "python-dotenv>=1.0.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.3.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
