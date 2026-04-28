@@ -5,7 +5,10 @@ slug: contract-intelligence
 score_data: 3
 score_impl: 3
 score_fit: 3
-score_total: 9
+score_resilience: 3
+score_narrative: 2
+score_differentiation: 3
+score_total: 17
 verdict: Pursue with caveats
 evaluated_on: 2026-04-28
 ---

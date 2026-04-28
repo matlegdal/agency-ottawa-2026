@@ -5,8 +5,11 @@ slug: policy-misalignment
 score_data: 2
 score_impl: 2
 score_fit: 4
-score_total: 8
-verdict: Avoid
+score_resilience: 2
+score_narrative: 2
+score_differentiation: 4
+score_total: 16
+verdict: Pursue with caveats
 evaluated_on: 2026-04-28
 ---
 

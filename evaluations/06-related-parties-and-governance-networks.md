@@ -5,7 +5,10 @@ slug: related-parties-and-governance-networks
 score_data: 3
 score_impl: 2
 score_fit: 4
-score_total: 9
+score_resilience: 2
+score_narrative: 4
+score_differentiation: 4
+score_total: 19
 verdict: Pursue with caveats
 evaluated_on: 2026-04-28
 ---

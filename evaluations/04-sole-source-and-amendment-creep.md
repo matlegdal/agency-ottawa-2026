@@ -5,7 +5,10 @@ slug: sole-source-and-amendment-creep
 score_data: 4
 score_impl: 4
 score_fit: 5
-score_total: 13
+score_resilience: 4
+score_narrative: 5
+score_differentiation: 4
+score_total: 26
 verdict: Pursue
 evaluated_on: 2026-04-28
 ---

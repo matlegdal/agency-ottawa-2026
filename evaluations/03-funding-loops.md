@@ -5,7 +5,10 @@ slug: funding-loops
 score_data: 5
 score_impl: 4
 score_fit: 4
-score_total: 13
+score_resilience: 5
+score_narrative: 3
+score_differentiation: 5
+score_total: 26
 verdict: Pursue
 evaluated_on: 2026-04-28
 ---

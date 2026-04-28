@@ -5,8 +5,11 @@ slug: duplicative-funding
 score_data: 4
 score_impl: 3
 score_fit: 4
-score_total: 11
-verdict: Pursue with caveats
+score_resilience: 4
+score_narrative: 4
+score_differentiation: 4
+score_total: 23
+verdict: Pursue
 evaluated_on: 2026-04-28
 ---
 

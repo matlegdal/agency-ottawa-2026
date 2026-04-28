@@ -5,7 +5,10 @@ slug: adverse-media
 score_data: 1
 score_impl: 2
 score_fit: 4
-score_total: 7
+score_resilience: 1
+score_narrative: 4
+score_differentiation: 5
+score_total: 17
 verdict: Avoid
 evaluated_on: 2026-04-28
 ---

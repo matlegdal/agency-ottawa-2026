@@ -5,7 +5,10 @@ slug: {kebab-case-slug}
 score_data: {1-5}
 score_impl: {1-5}
 score_fit: {1-5}
-score_total: {sum, must equal score_data + score_impl + score_fit}
+score_resilience: {1-5}
+score_narrative: {1-5}
+score_differentiation: {1-5}
+score_total: {sum, must equal sum of all six scores, range 6-30}
 verdict: {Pursue | Pursue with caveats | Avoid}
 evaluated_on: {YYYY-MM-DD}
 ---
@@ -40,6 +43,28 @@ evaluated_on: {YYYY-MM-DD}
 - **Dynamic vs one-shot:** {use `references/dynamic-vs-oneshot.md`}
 - **Two-minute story:** {can the demo end on "…and that is why $X went to entity Y who [did Z]"? Yes/No.}
 
+## Demo Resilience — Score: {1–5}
+
+**Justification.** {One paragraph. What happens when a Minister types in a famous entity from their portfolio? Is the output deterministic or inferential? Wrong-looking results on famous entities are worse than empty results.}
+
+- **Determinism:** {pure aggregation / set membership / direct registry signal vs ratio with NULLs / fuzzy match / LLM judgment}
+- **Failure mode:** {empty result on rare entity / wrong-looking result on famous entity / inconsistent between runs}
+- **Curated showcase set required?** {yes/no — and which entities the team should pre-validate}
+
+## Narrative Specificity — Score: {1–5}
+
+**Justification.** {One paragraph. How vivid is the headline finding?}
+
+- **Slide test:** {can the punchline fit the schema "$X to {named entity}, who {verb phrase}"? Write the actual punchline.}
+- **Setup required:** {no setup / one sentence of context / multi-entity cluster the audience must track}
+
+## Differentiation — Score: {1–5}
+
+**Justification.** {One paragraph. With ~900 hackathon participants, why does this stand out?}
+
+- **What can't you get from existing tools?** {finish the sentence: "You can't get this today from {GC InfoBase / Open.Canada.ca / charitydata.ca / buyandsell.gc.ca / etc.} because {structural reason}."}
+- **Source of the novelty:** {new join / new signal / new framing / mostly UI wrapping}
+
 ---
 
 ## Risks & gotchas
@@ -59,6 +84,6 @@ evaluated_on: {YYYY-MM-DD}
 
 ---
 
-## Final score: {sum}/15 — {Pursue / Pursue with caveats / Avoid}
+## Final score: {sum}/30 — {Pursue / Pursue with caveats / Avoid}
 
 {One-line verdict.}

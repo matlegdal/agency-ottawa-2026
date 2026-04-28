@@ -5,7 +5,10 @@ slug: vendor-concentration
 score_data: 5
 score_impl: 5
 score_fit: 3
-score_total: 13
+score_resilience: 5
+score_narrative: 2
+score_differentiation: 2
+score_total: 22
 verdict: Pursue
 evaluated_on: 2026-04-28
 ---

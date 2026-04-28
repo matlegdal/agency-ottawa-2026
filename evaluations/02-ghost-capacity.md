@@ -5,7 +5,10 @@ slug: ghost-capacity
 score_data: 4
 score_impl: 4
 score_fit: 5
-score_total: 13
+score_resilience: 3
+score_narrative: 4
+score_differentiation: 5
+score_total: 25
 verdict: Pursue
 evaluated_on: 2026-04-28
 ---

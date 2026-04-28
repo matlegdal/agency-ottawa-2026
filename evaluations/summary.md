@@ -2,39 +2,46 @@
 
 _Last updated: 2026-04-28. Sourced from `evaluations/*.md` frontmatter._
 
-| Rank | # | Challenge | Data | Impl | Fit | Total | Verdict |
-|------|---|-----------|------|------|-----|-------|---------|
-| 1 | 1 | Zombie Recipients | 4 | 4 | 5 | 13 | Pursue |
-| 2 | 2 | Ghost Capacity | 4 | 4 | 5 | 13 | Pursue |
-| 3 | 3 | Funding Loops | 5 | 4 | 4 | 13 | Pursue |
-| 4 | 4 | Sole Source and Amendment Creep | 4 | 4 | 5 | 13 | Pursue |
-| 5 | 5 | Vendor Concentration | 5 | 5 | 3 | 13 | Pursue |
-| 6 | 8 | Duplicative Funding | 4 | 3 | 4 | 11 | Pursue with caveats |
-| 7 | 6 | Related Parties and Governance Networks | 3 | 2 | 4 | 9 | Pursue with caveats |
-| 8 | 9 | Contract Intelligence | 3 | 3 | 3 | 9 | Pursue with caveats |
-| 9 | 7 | Policy Misalignment | 2 | 2 | 4 | 8 | Avoid |
-| 10 | 10 | Adverse Media | 1 | 2 | 4 | 7 | Avoid |
+| Rank | Ch. | Challenge | Data | Impl | Fit | Res | Narr | Diff | Total | Verdict |
+|------|-----|-----------|------|------|-----|-----|------|------|-------|---------|
+| 1 | 1 | Zombie Recipients | 4 | 4 | 5 | 4 | 5 | 5 | 27 | Pursue |
+| 2 | 3 | Funding Loops | 5 | 4 | 4 | 5 | 3 | 5 | 26 | Pursue |
+| 3 | 4 | Sole Source and Amendment Creep | 4 | 4 | 5 | 4 | 5 | 4 | 26 | Pursue |
+| 4 | 2 | Ghost Capacity | 4 | 4 | 5 | 3 | 4 | 5 | 25 | Pursue |
+| 5 | 8 | Duplicative Funding | 4 | 3 | 4 | 4 | 4 | 4 | 23 | Pursue |
+| 6 | 5 | Vendor Concentration | 5 | 5 | 3 | 5 | 2 | 2 | 22 | Pursue |
+| 7 | 6 | Related Parties and Governance Networks | 3 | 2 | 4 | 2 | 4 | 4 | 19 | Pursue with caveats |
+| 8 | 9 | Contract Intelligence | 3 | 3 | 3 | 3 | 2 | 3 | 17 | Pursue with caveats |
+| 9 | 10 | Adverse Media | 1 | 2 | 4 | 1 | 4 | 5 | 17 | Avoid |
+| 10 | 7 | Policy Misalignment | 2 | 2 | 4 | 2 | 2 | 4 | 16 | Pursue with caveats |
+
+**Header legend:** Res = Demo Resilience, Narr = Narrative Specificity, Diff = Differentiation. Verdict thresholds: ≥22 Pursue, 16–21 Pursue with caveats, <16 Avoid. A single dimension at 1 is a hard veto regardless of total.
+
+The new rubric (six dimensions, total /30) replaces the previous three-dimension /15 rubric. Demo Resilience, Narrative Specificity, and Differentiation were added because the original three collapsed five top-tier challenges to the same total. With ~900 hackathon participants, on-stage robustness, punchline vividness, and visible novelty against existing public dashboards are the deciding factors.
 
 ## Top picks
 
-Five challenges tie at 13/15. Different shapes — pick by team strength and demo intent:
+The top tier is now well-separated. Three challenges sit clearly above the rest:
 
-- **#1 Zombie Recipients (13/15)** — strongest fit-to-shippability ratio; existing `analyze:zombies` script + `plans/zombie_agent_build_manual_v2.md`. Per-recipient dossier, naturally agentic.
-- **#2 Ghost Capacity (13/15)** — shares ~80% of plumbing with #1; can be paired into a single dossier surface that emits both verdicts per recipient.
-- **#3 Funding Loops (13/15)** — strongest "data already done" challenge: Johnson cycles, SCC, scoring, overhead, and financials are pre-computed in `cra.loops*` / `loop_universe` / `loop_financials`. Highest Data score (5).
-- **#4 Sole Source and Amendment Creep (13/15)** — procurement is the most legible accountability story for the audience; both halves (`analyze:amendments` + AB sole-source) already ship.
-- **#5 Vendor Concentration (13/15)** — cleanest data + simplest implementation (Data 5, Impl 5) of the entire set; capped at Fit 3 because the demo is fundamentally aggregate. Pairs naturally with #4 to recover a per-vendor narrative.
+- **#1 Zombie Recipients (27/30)** — strongest combination across all six. Existing `analyze:zombies` script + `plans/zombie_agent_build_manual_v2.md`. Punchline writes itself: *"$X to [Y], dissolved 9 months later."* No existing public tool joins funding events to dissolution timelines.
+- **#3 Funding Loops (26/30)** — unique on Data (5) and Differentiation (5). All heavy-lifting pre-computed in `cra.loops*` / `loop_universe` / `loop_financials`. Highest Demo Resilience of the field — set membership is mechanical. Caveat: Narrative requires explaining designation A/B/C, which is why it's tied with #4 not above it.
+- **#4 Sole Source and Amendment Creep (26/30)** — strongest Narrative Specificity tie (5). Original-vs-amended dollar gap is the most legible procurement story for the audience. `analyze:amendments` + `ab.ab_sole_source` already ship. Differentiation 4 (not 5) because TBS proactive disclosure shows individual amendments — the team's contribution is the creep narrative, not the underlying dollars.
+
+**#2 Ghost Capacity (25/30)** is a natural pair-extension of #1 — shares ~80% of plumbing and produces a compatible per-recipient verdict. **#8 Duplicative Funding (23/30)** is the dark horse: cleanest cross-jurisdictional story, no existing public tool composes federal × Alberta funding by recipient + program purpose.
+
+## Strong but capped
+
+- **#5 Vendor Concentration (22/30)** — clean data + simple impl (Data 5, Impl 5, Resilience 5) but Narrative 2 / Differentiation 2 reveal the underlying problem: this is a familiar public dashboard with a chatbot. Skip unless paired with #4 to recover a per-vendor narrative.
 
 ## Pursue with caveats
 
-- **#8 Duplicative Funding (11/15)** — solid duplication half (federal × Alberta join through `general.entity_golden_records`); scope out the gap-side analysis until a policy-commitments corpus is ingested.
-- **#6 Related Parties (9/15)** — high-fit story but Implementation = 2 caps the verdict; pursue only with hard scope (director overlap *inside* `cra.loop_universe`, no person-level Splink, no corporate-registry ingestion, no full graph viz).
-- **#9 Contract Intelligence (9/15)** — strong topic but unit-cost is inferential, not measured; pair with #5 to recover a per-vendor narrative or skip.
+- **#6 Related Parties (19/30)** — strong Differentiation (4) and Narrative (4) but Resilience 2 makes a live demo risky (name-based fuzzy matching can wrong-flag a famous person). Pursue only with hard scope: director overlap *inside* `cra.loop_universe`, no person-level Splink, no corporate-registry ingestion.
+- **#9 Contract Intelligence (17/30)** — middle of the pack on every axis. No reason to lead with this; pair with #5 if pursuing procurement at all.
+- **#7 Policy Misalignment (16/30)** — boundary score, Pursue-with-caveats by the rubric, but two dimensions at 2 (Impl, Narrative) and one at 2 (Resilience). Stated policy commitments are not in the DB; ingestion + alignment is research-grade and a single contested attribution sinks the demo. Strong Differentiation (4) is the only reason it's not Avoid.
 
 ## Avoid
 
-- **#7 Policy Misalignment (8/15)** — stated policy commitments are not in the DB; ingestion + alignment is research-grade and risks a single contested attribution sinking the demo in front of a DM who knows the portfolio.
-- **#10 Adverse Media (7/15)** — no media corpus in repo; Data = 1 triggers the rubric's hard-veto precedence rule.
+- **#10 Adverse Media (17/30)** — Data = 1 and Resilience = 1 trigger the rubric's hard-veto precedence rule. Highest Differentiation (5) of any challenge because nothing exists publicly — but the implementation cannot be made demo-stable in one day with the repo as-is.
 
 ## Coverage
 

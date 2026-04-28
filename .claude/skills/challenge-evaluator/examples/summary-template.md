@@ -2,28 +2,29 @@
 
 _Last updated: {YYYY-MM-DD}. Sourced from `evaluations/*.md` frontmatter._
 
-| Rank | # | Challenge | Data | Impl | Fit | Total | Verdict |
-|------|---|-----------|------|------|-----|-------|---------|
-| 1 | 1 | Zombie Recipients | 4 | 4 | 5 | 13 | Pursue |
-| 2 | 5 | Vendor Concentration | 5 | 4 | 3 | 12 | Pursue |
-| … | … | … | … | … | … | … | … |
-| 10 | 10 | Adverse Media | 1 | 2 | 4 | 7 | Avoid |
+| Rank | Ch. | Challenge | Data | Impl | Fit | Res | Narr | Diff | Total | Verdict |
+|------|-----|-----------|------|------|-----|-----|------|------|-------|---------|
+| 1 | 1 | Zombie Recipients | 4 | 4 | 5 | 4 | 5 | 5 | 27 | Pursue |
+| 2 | 4 | Sole Source and Amendment Creep | 4 | 4 | 5 | 4 | 5 | 4 | 26 | Pursue |
+| … | … | … | … | … | … | … | … | … | … | … |
+| 10 | 10 | Adverse Media | 1 | 2 | 4 | 1 | 4 | 5 | 17 | Avoid |
+
+**Header legend:** Res = Demo Resilience, Narr = Narrative Specificity, Diff = Differentiation. Verdict thresholds: ≥22 Pursue, 16–21 Pursue with caveats, <16 Avoid. A single dimension at 1 is a hard veto regardless of total.
 
 ## Top picks
 
 Challenges with verdict = **Pursue**, sorted by total score:
 
-- **#1 Zombie Recipients (13/15)** — strongest fit-to-shippability ratio; existing `analyze:zombies` script + plan in `plans/`.
-- **#5 Vendor Concentration (12/15)** — straightforward HHI / top-N concentration on FED + AB; no graph algorithms required.
+- **#1 Zombie Recipients (27/30)** — strongest combination of feasibility, on-stage robustness, and a punchline that writes itself. Existing `analyze:zombies` + plan in `plans/`.
+- **#4 Sole Source and Amendment Creep (26/30)** — procurement is the most legible accountability story for the audience; original-vs-amended dollar gap is exceptionally vivid.
 
 ## Pursue with caveats
 
-- **#3 Funding Loops (11/15)** — strong CRA assets but designation A/B/C interpretation is essential; scope to a subset of cycles.
+- **#3 Funding Loops (21/30)** — strongest data story (5/5) but Narrative requires explaining designation A/B/C; pursue with a curated showcase loop the team has already triaged.
 
 ## Avoid
 
-- **#10 Adverse Media (7/15)** — no media corpus in repo; Data dimension at 1 triggers the rubric's hard-veto precedence rule.
-- **#7 Policy Misalignment (8/15)** — stated policy commitments are not in the DB; out-of-scope ingestion required.
+- **#10 Adverse Media (17/30)** — Data = 1 triggers the rubric's hard-veto precedence rule.
 
 ## Coverage
 
