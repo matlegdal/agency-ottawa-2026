@@ -1,3 +1,15 @@
+---
+challenge: 10
+name: Adverse Media
+slug: adverse-media
+score_data: 1
+score_impl: 2
+score_fit: 4
+score_total: 7
+verdict: Avoid
+evaluated_on: 2026-04-28
+---
+
 # Challenge 10 — Adverse Media
 
 > Which organizations receiving public funding are the subject of serious adverse media coverage — regulatory enforcement, fraud allegations, safety incidents, criminal investigations, sanctions — distinguished from political controversy and op-eds?

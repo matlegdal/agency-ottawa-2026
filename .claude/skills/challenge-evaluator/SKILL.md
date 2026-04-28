@@ -6,23 +6,55 @@ version: 0.1.0
 
 # Challenge Evaluator
 
-Evaluate any of the ten Agency 2026 hackathon challenges from `challenges.md` against three dimensions: **Data**, **Implementation Difficulty**, and **Fit**. Produce a single structured report the user can compare across challenges to pick what to build.
+Evaluate any of the ten Agency 2026 hackathon challenges from `challenges.md` against three dimensions: **Data**, **Implementation Difficulty**, and **Fit**. Each evaluation is written to its own markdown file under `evaluations/` at the repo root. The skill also runs in a **batch mode** that evaluates all ten challenges and produces a summary comparison table at `evaluations/summary.md`.
 
 ## When to use
 
-Trigger when the user asks to evaluate, score, compare, or pick among the ten challenges in `challenges.md`. Also trigger when the user names a specific challenge (e.g. "is Vendor Concentration a good fit?", "how hard would Zombie Recipients be?", "what data do we need for Adverse Media?").
+Trigger when the user asks to evaluate, score, compare, or pick among the ten challenges in `challenges.md`. Also trigger when the user names a specific challenge (e.g. "is Vendor Concentration a good fit?", "how hard would Zombie Recipients be?", "what data do we need for Adverse Media?"), or asks to "run this on every challenge", "evaluate all challenges", or "build the summary table".
 
 Do not trigger for:
 - General data-exploration questions ("how many charities filed in 2023?")
 - Implementation work on a challenge that has already been picked (use the relevant analyze scripts and per-module CLAUDE.md instead)
 
+## Output location
+
+All evaluations are written to `/Users/mathieu/code/qohash/agency-26-hackathon/evaluations/` at the repo root. Create the directory if it does not exist.
+
+| File | When written |
+|------|--------------|
+| `evaluations/01-zombie-recipients.md` … `evaluations/10-adverse-media.md` | One per challenge — written when that challenge is evaluated |
+| `evaluations/summary.md` | Comparison table across all challenges — written or refreshed whenever ≥2 challenges have evaluation files on disk |
+
+**Filename convention:** `{NN}-{kebab-case-name}.md` where `NN` is the two-digit challenge number (`01`–`10`) and the slug is the kebab-case challenge name from `challenges.md`. Use exactly these slugs:
+
+| # | Slug |
+|---|------|
+| 01 | `zombie-recipients` |
+| 02 | `ghost-capacity` |
+| 03 | `funding-loops` |
+| 04 | `sole-source-and-amendment-creep` |
+| 05 | `vendor-concentration` |
+| 06 | `related-parties-and-governance-networks` |
+| 07 | `policy-misalignment` |
+| 08 | `duplicative-funding` |
+| 09 | `contract-intelligence` |
+| 10 | `adverse-media` |
+
+If an evaluation file already exists, **overwrite it** with the new evaluation rather than appending. Do not create alternative filenames or directories.
+
 ## Workflow
 
 Follow these steps in order. Skip a step only when the user has explicitly answered it already.
 
-### Step 1 — Identify the challenge
+### Step 1 — Identify the challenge(s) and the mode
 
-Map the user's request to one of the ten challenges in `/Users/mathieu/code/qohash/agency-26-hackathon/challenges.md` (numbered 1–10). If ambiguous, ask once which challenge to evaluate. If the user wants a comparison, evaluate each in turn and produce a final ranking table at the end.
+Decide which mode the request maps to:
+
+- **Single mode** — evaluate exactly one challenge. Map the user's request to a challenge number 1–10 from `/Users/mathieu/code/qohash/agency-26-hackathon/challenges.md`. If ambiguous, ask once which challenge to evaluate.
+- **Batch mode** — evaluate all ten challenges in sequence. Triggered by phrases like "run this on every challenge", "evaluate all", "score every challenge", "build the summary".
+- **Comparison mode** — evaluate a specific subset (e.g. "compare 1 and 5"). Treat as Single mode applied N times.
+
+In Batch mode, evaluate challenges in numerical order (1 → 10). After each individual evaluation file is written, refresh `evaluations/summary.md` (Step 5).
 
 ### Step 2 — Ground the evaluation in actual repo state
 
@@ -59,9 +91,32 @@ Use the rubric in `references/rubric.md` to score each dimension on a 1–5 scal
 - How **dynamic** is the problem? A skill that an agent can re-run on new data, new entities, or follow-up questions scores high. A one-shot data analysis that produces a static report scores low. Agentic / interactive demos are explicitly preferred. **Use the per-challenge tendency table in `references/dynamic-vs-oneshot.md`** — it pre-classifies each challenge and gives the heuristic for borderline cases.
 - Bonus signal: does it tell a story a Minister or Deputy Minister can grasp in 2 minutes? (The audience is named in the "Audience" section of `challenges.md`.)
 
-### Step 4 — Produce the report
+### Step 4 — Produce the report and write it to disk
 
-Use the report template in `examples/evaluation-template.md`. The output must include:
+Use the report template in `examples/evaluation-template.md`. **The output must be a frontmatter-tagged markdown file written to `evaluations/{NN}-{slug}.md`** (see the filename convention above). The frontmatter is required — `evaluations/summary.md` is generated by parsing it.
+
+Frontmatter format (place at the very top of the file):
+
+```yaml
+---
+challenge: 1
+name: Zombie Recipients
+slug: zombie-recipients
+score_data: 4
+score_impl: 4
+score_fit: 5
+score_total: 13
+verdict: Pursue
+evaluated_on: 2026-04-28
+---
+```
+
+Field rules:
+- `verdict` is one of `Pursue`, `Pursue with caveats`, `Avoid` (exact strings).
+- `score_total` must equal `score_data + score_impl + score_fit`. Do not write a derived total that disagrees with the parts.
+- `evaluated_on` is today's date in ISO format (`YYYY-MM-DD`).
+
+After the frontmatter, the report body must include:
 
 1. **Header** — challenge number, name, one-sentence summary
 2. **Three dimension blocks** with score, justification, and the sub-question answers
@@ -72,13 +127,35 @@ Use the report template in `examples/evaluation-template.md`. The output must in
 
 Keep the total report under ~800 words. The audience is a hackathon team trying to choose; verbosity hurts.
 
-### Step 5 — Compare (only if multiple challenges)
+Write the file with the `Write` tool. Do not print the full report inline in the response — instead, summarize in 2–3 sentences and link to the file path.
 
-If evaluating more than one challenge, end with a comparison table sorted by final score:
+### Step 5 — Refresh the summary table
 
-| # | Challenge | Data | Impl | Fit | Total | Verdict |
-|---|-----------|------|------|-----|-------|---------|
-| 1 | Zombie Recipients | 4 | 4 | 5 | 13 | Pursue |
+After every individual evaluation is written (Single, Comparison, or Batch mode), regenerate `evaluations/summary.md`. Steps:
+
+1. List `evaluations/*.md` (excluding `summary.md`) using `Bash` (e.g. `ls evaluations/`).
+2. For each file, parse the YAML frontmatter to extract: `challenge`, `name`, `score_data`, `score_impl`, `score_fit`, `score_total`, `verdict`. Use a tiny `awk` / `sed` snippet or read each file's first ~15 lines — do not pull the whole body into context.
+3. Sort the rows by `score_total` descending, then by `challenge` ascending as tiebreaker.
+4. Write `evaluations/summary.md` using the structure shown in `examples/summary-template.md`. Always overwrite — never append.
+
+Summary table format:
+
+```markdown
+# Challenge Comparison Summary
+
+_Last updated: {YYYY-MM-DD}. Sourced from `evaluations/*.md` frontmatter._
+
+| Rank | # | Challenge | Data | Impl | Fit | Total | Verdict |
+|------|---|-----------|------|------|-----|-------|---------|
+| 1 | 1 | Zombie Recipients | 4 | 4 | 5 | 13 | Pursue |
+| … | … | … | … | … | … | … | … |
+```
+
+Below the table, include:
+- A **"Top picks"** section listing every `Pursue` challenge with a one-line rationale (pulled from each file's verdict line).
+- A **"Coverage"** line stating `N / 10` challenges evaluated, and naming any that are missing.
+
+If only one evaluation exists on disk, still produce a `summary.md` — but note explicitly that only one is evaluated and skip the ranking framing.
 
 ## Anti-patterns
 
@@ -100,6 +177,7 @@ If evaluating more than one challenge, end with a comparison table sorted by fin
 
 ### Examples
 
-- **`examples/evaluation-template.md`** — Markdown template for a single-challenge evaluation report
+- **`examples/evaluation-template.md`** — Frontmatter + markdown template for a single-challenge evaluation report
+- **`examples/summary-template.md`** — Template for `evaluations/summary.md` (the cross-challenge comparison table)
 - **`examples/zombie-recipients-evaluation.md`** — Worked example evaluating Challenge 1 end-to-end (high score: 13/15 Pursue)
 - **`examples/adverse-media-evaluation.md`** — Worked example evaluating Challenge 10 (low score: 7/15 Avoid, demonstrates the precedence-rule veto)

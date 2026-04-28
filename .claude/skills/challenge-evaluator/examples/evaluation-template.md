@@ -1,3 +1,15 @@
+---
+challenge: {N}
+name: {Challenge Name}
+slug: {kebab-case-slug}
+score_data: {1-5}
+score_impl: {1-5}
+score_fit: {1-5}
+score_total: {sum, must equal score_data + score_impl + score_fit}
+verdict: {Pursue | Pursue with caveats | Avoid}
+evaluated_on: {YYYY-MM-DD}
+---
+
 # Challenge {N} — {Name}
 
 > {One-sentence summary of the challenge, paraphrased from `challenges.md`.}

@@ -1,3 +1,15 @@
+---
+challenge: 1
+name: Zombie Recipients
+slug: zombie-recipients
+score_data: 4
+score_impl: 4
+score_fit: 5
+score_total: 13
+verdict: Pursue
+evaluated_on: 2026-04-28
+---
+
 # Challenge 1 — Zombie Recipients
 
 > Did public funding go to entities that ceased operations within 12 months — or to entities so dependent on public money (>70–80% of revenue) that they could not survive without it?
