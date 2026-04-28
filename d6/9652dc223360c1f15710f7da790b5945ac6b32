@@ -1,0 +1,51 @@
+evaluations/03-funding-loops.md
+  8802b782d7d51a63 8-11
+.claude/skills/challenge-evaluator/examples/summary-template.md
+  8802b782d7d51a63 5-12,18-19,23,27
+evaluations/10-adverse-media.md
+  8802b782d7d51a63 8-11
+.claude/skills/challenge-evaluator/SKILL.md
+  8802b782d7d51a63 70,72,94-108,123-126,134,140,144,146,155,159,166-169,172
+.claude/skills/challenge-evaluator/examples/evaluation-template.md
+  8802b782d7d51a63 8-11,46-67,87
+evaluations/08-duplicative-funding.md
+  8802b782d7d51a63 8-12
+evaluations/02-ghost-capacity.md
+  8802b782d7d51a63 8-11
+evaluations/09-contract-intelligence.md
+  8802b782d7d51a63 8-11
+.claude/skills/challenge-evaluator/references/rubric.md
+  8802b782d7d51a63 3,5-7,9-11,76-127,130
+evaluations/summary.md
+  8802b782d7d51a63 5-20,24,26-34,38-40,44
+evaluations/05-vendor-concentration.md
+  8802b782d7d51a63 8-11
+evaluations/06-related-parties-and-governance-networks.md
+  8802b782d7d51a63 8-11
+evaluations/07-policy-misalignment.md
+  8802b782d7d51a63 8-12
+evaluations/04-sole-source-and-amendment-creep.md
+  8802b782d7d51a63 8-11
+evaluations/01-zombie-recipients.md
+  8802b782d7d51a63 8-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "d69652dc223360c1f15710f7da790b5945ac6b32",
+  "prompts": {
+    "8802b782d7d51a63": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3e105a1e-d332-484d-9728-f6d239753e40",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mathieu Léger-Dalcourt",
+      "messages": [],
+      "total_additions": 210,
+      "total_deletions": 73,
+      "accepted_lines": 204,
+      "overriden_lines": 0
+    }
+  }
+}
