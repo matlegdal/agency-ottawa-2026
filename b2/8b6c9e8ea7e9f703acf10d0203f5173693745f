@@ -1,0 +1,28 @@
+CLAUDE.md
+  540218dff9c70add 1-146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "b28b6c9e8ea7e9f703acf10d0203f5173693745f",
+  "prompts": {
+    "540218dff9c70add": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "78056256-7f7f-4d49-a3f9-5bb01e458405",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mathieu Léger-Dalcourt",
+      "messages": [],
+      "total_additions": 152,
+      "total_deletions": 0,
+      "accepted_lines": 146,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_fee09a067fd833": {
+      "author": "Mathieu Léger-Dalcourt"
+    }
+  }
+}
