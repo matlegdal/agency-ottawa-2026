@@ -1,0 +1,47 @@
+.claude/skills/challenge-evaluator/examples/zombie-recipients-evaluation.md
+  8802b782d7d51a63 1-12
+.claude/skills/challenge-evaluator/examples/evaluation-template.md
+  8802b782d7d51a63 1-12
+.claude/skills/challenge-evaluator/examples/adverse-media-evaluation.md
+  8802b782d7d51a63 1-12
+.claude/skills/challenge-evaluator/examples/summary-template.md
+  8802b782d7d51a63 1-36
+.claude/skills/challenge-evaluator/SKILL.md
+  8802b782d7d51a63 9,13,19-44,49,51-57,94-96,98-119,130-152,154-156,158,180-181
+evaluations/03-funding-loops.md
+  8802b782d7d51a63 1-12
+  e3059acd8210c913 13-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "498402512b06092460cd1fd9516fed8a7ec35e28",
+  "prompts": {
+    "8802b782d7d51a63": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3e105a1e-d332-484d-9728-f6d239753e40",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mathieu Léger-Dalcourt",
+      "messages": [],
+      "total_additions": 174,
+      "total_deletions": 12,
+      "accepted_lines": 174,
+      "overriden_lines": 0
+    },
+    "e3059acd8210c913": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ce4ed76e-e111-4772-861a-2ac7b9e42d7b",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mathieu Léger-Dalcourt",
+      "messages": [],
+      "total_additions": 58,
+      "total_deletions": 0,
+      "accepted_lines": 58,
+      "overriden_lines": 0
+    }
+  }
+}
