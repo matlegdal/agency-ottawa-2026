@@ -14,6 +14,10 @@ We also keep a per-run dictionary of `tool_use_id -> perf_counter_start`
 so that the hook (which fires on PreToolUse) and the agent loop (which
 fires when the ToolResultBlock arrives) can cooperate on duration
 calculation. The hook records the start; the loop reads it on completion.
+
+`/ws/live` broadcast subscribers: any number of dashboard clients can call
+`subscribe_broadcast` / `unsubscribe_broadcast`. Every `emit` fans out to
+all of them in addition to the primary `_sender`.
 """
 
 import time
@@ -25,6 +29,7 @@ Sender = Callable[[dict[str, Any]], Awaitable[None]]
 
 _sender: Optional[Sender] = None
 _step_starts: dict[str, float] = {}
+_broadcast_clients: set[Sender] = set()
 
 
 def set_sender(fn: Optional[Sender]) -> None:
@@ -35,15 +40,26 @@ def set_sender(fn: Optional[Sender]) -> None:
         _step_starts.clear()
 
 
+def subscribe_broadcast(fn: Sender) -> None:
+    _broadcast_clients.add(fn)
+
+
+def unsubscribe_broadcast(fn: Sender) -> None:
+    _broadcast_clients.discard(fn)
+
+
 async def emit(payload: dict[str, Any]) -> None:
-    """Push an event to the bound sender, if any. Silent no-op otherwise."""
-    if _sender is None:
-        return
-    try:
-        await _sender(payload)
-    except Exception:
-        # A dropped websocket should never crash the agent loop.
-        pass
+    """Push an event to the primary sender and all broadcast subscribers."""
+    if _sender is not None:
+        try:
+            await _sender(payload)
+        except Exception:
+            pass
+    for fn in list(_broadcast_clients):
+        try:
+            await fn(payload)
+        except Exception:
+            _broadcast_clients.discard(fn)
 
 
 def mark_step_start(tool_use_id: str) -> None:

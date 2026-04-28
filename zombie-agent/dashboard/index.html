@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zombie Recipients — Live Dashboard</title>
+  <style>
+    :root {
+      --bg:         #07090e;
+      --panel:      #0e1219;
+      --panel2:     #131822;
+      --line:       #1e2737;
+      --fg:         #dce6f4;
+      --muted:      #6b7892;
+      --accent:     #4cc4ff;
+      --good:       #3fb985;
+      --warn:       #f0b54a;
+      --bad:        #d96b6b;
+      --pending:    #f0b54a;
+      --challenged: #c984e0;
+      --verified:   #3fb985;
+      --refuted:    #4a5268;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+
+    /* ── Layout ─────────────────────────────────────────────── */
+    .root {
+      display: grid;
+      grid-template-rows: 56px 120px 1fr;
+      grid-template-columns: 1fr 360px;
+      height: 100vh;
+      gap: 1px;
+      background: var(--line);
+    }
+
+    header {
+      grid-column: 1 / -1;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .kpi-row {
+      grid-column: 1 / -1;
+      display: flex; align-items: stretch; gap: 1px;
+      background: var(--line);
+    }
+
+    .cards-pane {
+      background: var(--bg);
+      overflow-y: auto;
+      padding: 18px;
+    }
+
+    .feed-pane {
+      background: var(--panel);
+      overflow-y: auto;
+      padding: 16px;
+      border-left: 1px solid var(--line);
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    .logo { font-size: 15px; font-weight: 700; letter-spacing: .04em; color: var(--fg); }
+    .logo span { color: var(--bad); }
+    .conn { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--refuted); }
+    .dot.live { background: var(--good); animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .timer { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+    /* ── KPI tiles ───────────────────────────────────────────── */
+    .kpi {
+      flex: 1;
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 0 24px;
+      background: var(--panel);
+      position: relative;
+    }
+    .kpi::after {
+      content: ''; position: absolute; left: 0; top: 20%; bottom: 20%;
+      width: 3px; border-radius: 2px;
+    }
+    .kpi.funding::after  { background: var(--bad); }
+    .kpi.total::after    { background: var(--accent); }
+    .kpi.verified::after { background: var(--verified); }
+    .kpi.challenged::after { background: var(--challenged); }
+    .kpi.refuted::after  { background: var(--refuted); }
+    .kpi.pending::after  { background: var(--pending); }
+
+    .kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: 4px; }
+    .kpi-value {
+      font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums;
+      line-height: 1; transition: color .4s;
+    }
+    .kpi-value.flash { animation: flash-yellow .5s ease-out; }
+    @keyframes flash-yellow { 0%{color:var(--warn)} 100%{color:inherit} }
+
+    /* ── Section headings ────────────────────────────────────── */
+    .pane-title {
+      font-size: 10px; text-transform: uppercase; letter-spacing: .1em;
+      color: var(--muted); margin-bottom: 14px; font-weight: 600;
+    }
+
+    /* ── Finding cards ───────────────────────────────────────── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 18px 18px 14px;
+      background: var(--panel2);
+      position: relative;
+      overflow: hidden;
+      transition: border-color .3s, box-shadow .3s;
+    }
+    .card::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 4px; border-radius: 12px 0 0 12px;
+      transition: background .4s;
+    }
+    .card.pending::before    { background: var(--pending); }
+    .card.challenged::before { background: var(--challenged); }
+    .card.verified::before   { background: var(--verified); box-shadow: 0 0 18px rgba(63,185,133,.25); }
+    .card.refuted::before    { background: var(--refuted); }
+    .card.verified { box-shadow: 0 0 0 1px rgba(63,185,133,.2); }
+
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
+    .card-name { font-size: 15px; font-weight: 700; flex: 1; line-height: 1.3; }
+    .pill {
+      display: inline-block; padding: 3px 10px; border-radius: 999px;
+      font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .pill.pending    { background: rgba(240,181,74,.15);  color: var(--pending); }
+    .pill.challenged { background: rgba(201,132,224,.15); color: var(--challenged); }
+    .pill.verified   { background: rgba(63,185,133,.15);  color: var(--verified); }
+    .pill.refuted    { background: rgba(74,82,104,.2);    color: var(--refuted); }
+
+    .card-bn { font-size: 11px; color: var(--muted); margin-bottom: 10px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+    .card-amount { font-size: 28px; font-weight: 700; color: var(--bad); margin-bottom: 2px; line-height: 1; }
+    .card-meta { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+    .card-dep { display: inline-block; padding: 2px 8px; border-radius: 4px; background: rgba(217,107,107,.12); color: var(--bad); font-size: 11px; font-weight: 600; margin-bottom: 10px; }
+    .card-evidence { font-size: 12px; color: var(--fg); line-height: 1.5; }
+    .card-verdict { margin-top: 10px; padding: 8px 10px; border-radius: 6px; background: #06090f; font-size: 11px; color: var(--muted); line-height: 1.4; }
+
+    .card-appear { animation: card-in .35s ease-out; }
+    @keyframes card-in { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: none; } }
+
+    /* ── Activity feed ───────────────────────────────────────── */
+    .feed-item {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .feed-item:last-child { border-bottom: 0; }
+
+    .feed-label { font-weight: 600; color: var(--fg); margin-bottom: 2px; }
+    .feed-meta { color: var(--muted); font-size: 11px; }
+    .feed-meta.ok   { color: var(--good); }
+    .feed-meta.err  { color: var(--bad); }
+    .feed-meta.run  { color: var(--muted); font-style: italic; }
+
+    .feed-item.type-run_start .feed-label   { color: var(--accent); }
+    .feed-item.type-subagent_stop .feed-label { color: var(--challenged); }
+    .feed-item.type-result .feed-label       { color: var(--good); }
+    .feed-item.type-error .feed-label        { color: var(--bad); }
+    .feed-item.type-assistant_text .feed-label { color: var(--muted); font-style: italic; font-weight: normal; }
+
+    .feed-time { font-size: 10px; color: var(--muted); margin-right: 6px; font-variant-numeric: tabular-nums; }
+
+    .empty { color: var(--muted); font-style: italic; font-size: 12px; }
+  </style>
+</head>
+<body>
+<div class="root">
+
+  <header>
+    <div class="logo">ZOMBIE RECIPIENTS <span>&#9632;</span> Live Dashboard</div>
+    <div class="timer" id="timer">–</div>
+    <div class="conn">
+      <div class="dot" id="dot"></div>
+      <span id="conn-label">Connecting…</span>
+    </div>
+  </header>
+
+  <div class="kpi-row">
+    <div class="kpi funding">
+      <div class="kpi-label">Total Funding at Risk</div>
+      <div class="kpi-value" id="kpi-funding">$0</div>
+    </div>
+    <div class="kpi total">
+      <div class="kpi-label">Candidates</div>
+      <div class="kpi-value" id="kpi-total">0</div>
+    </div>
+    <div class="kpi verified">
+      <div class="kpi-label">Verified</div>
+      <div class="kpi-value" id="kpi-verified">0</div>
+    </div>
+    <div class="kpi challenged">
+      <div class="kpi-label">Challenged</div>
+      <div class="kpi-value" id="kpi-challenged">0</div>
+    </div>
+    <div class="kpi pending">
+      <div class="kpi-label">Pending</div>
+      <div class="kpi-value" id="kpi-pending">0</div>
+    </div>
+    <div class="kpi refuted">
+      <div class="kpi-label">Refuted</div>
+      <div class="kpi-value" id="kpi-refuted">0</div>
+    </div>
+  </div>
+
+  <div class="cards-pane">
+    <div class="pane-title">Audit Leads</div>
+    <div class="cards-grid" id="cards-grid">
+      <div class="empty">Waiting for the agent to surface candidates…</div>
+    </div>
+  </div>
+
+  <div class="feed-pane">
+    <div class="pane-title">Live Activity</div>
+    <div id="feed"><div class="empty">No run yet.</div></div>
+  </div>
+
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────
+const findings = {};   // bn → { data, cardEl }
+const steps    = {};   // tool_use_id → feedItemEl
+let runStart   = null;
+let timerRaf   = null;
+
+// ── KPI elements ───────────────────────────────────────────────────
+const kpiEls = {
+  funding:    document.getElementById('kpi-funding'),
+  total:      document.getElementById('kpi-total'),
+  verified:   document.getElementById('kpi-verified'),
+  challenged: document.getElementById('kpi-challenged'),
+  pending:    document.getElementById('kpi-pending'),
+  refuted:    document.getElementById('kpi-refuted'),
+};
+
+function flash(el) {
+  el.classList.remove('flash');
+  void el.offsetWidth; // reflow
+  el.classList.add('flash');
+}
+
+function updateKPIs() {
+  const list = Object.values(findings).map(f => f.data);
+  const totalFunding = list.reduce((s, f) => s + (f.total_funding_cad || 0), 0);
+  const counts = { verified: 0, challenged: 0, pending: 0, refuted: 0 };
+  for (const f of list) counts[f.verifier_status] = (counts[f.verifier_status] || 0) + 1;
+
+  const fmtM = v => v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v.toFixed(0)}`;
+
+  setText(kpiEls.funding,    fmtM(totalFunding));
+  setText(kpiEls.total,      list.length);
+  setText(kpiEls.verified,   counts.verified   || 0);
+  setText(kpiEls.challenged, counts.challenged || 0);
+  setText(kpiEls.pending,    counts.pending    || 0);
+  setText(kpiEls.refuted,    counts.refuted    || 0);
+}
+
+function setText(el, val) {
+  const s = String(val);
+  if (el.textContent !== s) { el.textContent = s; flash(el); }
+}
+
+// ── Timer ──────────────────────────────────────────────────────────
+const timerEl = document.getElementById('timer');
+
+function startTimer() {
+  runStart = Date.now();
+  function tick() {
+    const s = ((Date.now() - runStart) / 1000).toFixed(0);
+    timerEl.textContent = `${s}s`;
+    timerRaf = requestAnimationFrame(tick);
+  }
+  timerRaf = requestAnimationFrame(tick);
+}
+
+function stopTimer() {
+  if (timerRaf) cancelAnimationFrame(timerRaf);
+  timerRaf = null;
+}
+
+// ── Cards ──────────────────────────────────────────────────────────
+const grid = document.getElementById('cards-grid');
+
+function upsertCard(m) {
+  const existing = findings[m.bn];
+  if (!existing) {
+    grid.querySelector('.empty')?.remove();
+    const el = document.createElement('div');
+    el.className = `card ${m.verifier_status} card-appear`;
+    grid.prepend(el);
+    findings[m.bn] = { data: m, cardEl: el };
+    renderCard(el, m);
+  } else {
+    existing.data = m;
+    existing.cardEl.className = `card ${m.verifier_status}`;
+    renderCard(existing.cardEl, m);
+  }
+  updateKPIs();
+}
+
+function renderCard(el, m) {
+  const status = m.verifier_status || 'pending';
+  const amt = m.total_funding_cad || 0;
+  const amtFmt = amt >= 1e6
+    ? `$${(amt / 1e6).toFixed(2)}M`
+    : amt >= 1e3 ? `$${(amt / 1e3).toFixed(0)}K` : `$${amt.toFixed(0)}`;
+  const dep = m.govt_dependency_pct > 0
+    ? `<span class="card-dep">${(m.govt_dependency_pct * 100).toFixed(0)}% govt-funded</span>`
+    : '';
+  const verdict = m.verifier_notes
+    ? `<div class="card-verdict">${esc(m.verifier_notes)}</div>`
+    : '';
+  const trail = (m.sql_trail || []).length
+    ? `<div class="feed-meta" style="margin-top:6px">Queries: ${esc(m.sql_trail.join(' · '))}</div>`
+    : '';
+
+  el.innerHTML = `
+    <div class="card-top">
+      <div class="card-name">${esc(m.entity_name)}</div>
+      <div class="pill ${status}">${status}</div>
+    </div>
+    <div class="card-bn">${esc(m.bn)} &middot; last known ${m.last_known_year || '—'}</div>
+    <div class="card-amount">${amtFmt}</div>
+    <div class="card-meta">cumulative federal funding</div>
+    ${dep}
+    <div class="card-evidence">${esc(m.evidence_summary || '')}</div>
+    ${verdict}
+    ${trail}
+  `;
+}
+
+// ── Feed ───────────────────────────────────────────────────────────
+const feedEl = document.getElementById('feed');
+
+function now() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+}
+
+function feedItem(typeClass, labelHtml, metaHtml = '', id = null) {
+  feedEl.querySelector('.empty')?.remove();
+  const el = document.createElement('div');
+  el.className = `feed-item type-${typeClass}`;
+  if (id) { el.id = 'fi-' + id; steps[id] = el; }
+  el.innerHTML = `
+    <div class="feed-label"><span class="feed-time">${now()}</span>${labelHtml}</div>
+    ${metaHtml ? `<div class="feed-meta run">${metaHtml}</div>` : ''}
+  `;
+  feedEl.prepend(el);
+  return el;
+}
+
+function updateFeedMeta(id, cls, html) {
+  const el = steps[id];
+  if (!el) return;
+  let m = el.querySelector('.feed-meta');
+  if (!m) { m = document.createElement('div'); el.appendChild(m); }
+  m.className = `feed-meta ${cls}`;
+  m.innerHTML = html;
+}
+
+// ── Message handling ───────────────────────────────────────────────
+function handle(m) {
+  switch (m.type) {
+
+    case 'run_start':
+      Object.keys(findings).forEach(k => delete findings[k]);
+      Object.keys(steps).forEach(k => delete steps[k]);
+      grid.innerHTML = '<div class="empty">Surfacing candidates…</div>';
+      feedEl.innerHTML = '';
+      updateKPIs();
+      startTimer();
+      feedItem('run_start', `&#x25B6; Investigation started`, esc(m.question || ''));
+      break;
+
+    case 'step_start':
+      feedItem('step_start', esc(m.label || '(query)'), 'running…', m.id);
+      break;
+
+    case 'step_complete': {
+      const dur = m.duration_ms != null ? `${m.duration_ms}ms` : '';
+      const rows = m.rows != null ? `${m.rows} rows` : '';
+      const bits = [rows, dur].filter(Boolean).join(' · ');
+      if (m.is_error) {
+        updateFeedMeta(m.id, 'err', `error${bits ? ' · ' + bits : ''}`);
+      } else {
+        updateFeedMeta(m.id, 'ok', bits || 'done');
+      }
+      break;
+    }
+
+    case 'finding':
+      upsertCard(m);
+      feedItem('finding',
+        `&#x25A6; Finding: ${esc(m.entity_name)}`,
+        `status → <strong>${m.verifier_status}</strong>`
+      );
+      break;
+
+    case 'subagent_stop':
+      feedItem('subagent_stop', '&#x2713; Verifier subagent finished');
+      break;
+
+    case 'assistant_text':
+      if (m.text && m.text.trim().length > 0) {
+        feedItem('assistant_text', esc(m.text.trim().slice(0, 180) + (m.text.length > 180 ? '…' : '')));
+      }
+      break;
+
+    case 'result':
+      stopTimer();
+      if (runStart) {
+        const elapsed = ((Date.now() - runStart) / 1000).toFixed(1);
+        timerEl.textContent = `${elapsed}s total`;
+      }
+      feedItem('result', `&#x25CF; Run complete`,
+        [
+          m.num_turns   ? `${m.num_turns} turns`            : '',
+          m.total_cost_usd != null ? `$${m.total_cost_usd.toFixed(4)}` : '',
+        ].filter(Boolean).join(' · ')
+      );
+      break;
+
+    case 'run_complete':
+      break;
+
+    case 'error':
+      stopTimer();
+      feedItem('error', `&#x26A0; Error: ${esc(m.error || 'unknown')}`);
+      break;
+  }
+}
+
+// ── WebSocket ──────────────────────────────────────────────────────
+const dot   = document.getElementById('dot');
+const label = document.getElementById('conn-label');
+
+function connect() {
+  const ws = new WebSocket(`ws://${location.host}/ws/live`);
+
+  ws.addEventListener('open', () => {
+    dot.classList.add('live');
+    label.textContent = 'Live';
+  });
+
+  ws.addEventListener('close', () => {
+    dot.classList.remove('live');
+    label.textContent = 'Reconnecting…';
+    setTimeout(connect, 2000);
+  });
+
+  ws.addEventListener('error', () => ws.close());
+
+  ws.addEventListener('message', (ev) => {
+    try { handle(JSON.parse(ev.data)); } catch { /* ignore */ }
+  });
+}
+
+connect();
+
+// ── Helpers ────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
