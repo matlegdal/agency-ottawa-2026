@@ -1,0 +1,14 @@
+challenges.md
+  h_fee09a067fd833 1-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "99a39bec7376800318cfcd3deb46b0ab711cfdae",
+  "prompts": {},
+  "humans": {
+    "h_fee09a067fd833": {
+      "author": "Mathieu Léger-Dalcourt"
+    }
+  }
+}
