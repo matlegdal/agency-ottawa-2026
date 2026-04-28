@@ -1,0 +1,35 @@
+.claude/skills/challenge-evaluator/examples/evaluation-template.md
+  8802b782d7d51a63 1-52
+.claude/skills/challenge-evaluator/SKILL.md
+  8802b782d7d51a63 1-105
+.claude/skills/challenge-evaluator/references/rubric.md
+  8802b782d7d51a63 1-76
+.claude/skills/challenge-evaluator/references/dynamic-vs-oneshot.md
+  8802b782d7d51a63 1-59
+.claude/skills/challenge-evaluator/examples/zombie-recipients-evaluation.md
+  8802b782d7d51a63 1-56
+.claude/skills/challenge-evaluator/examples/adverse-media-evaluation.md
+  8802b782d7d51a63 1-56
+.claude/skills/challenge-evaluator/references/data-map.md
+  8802b782d7d51a63 1-108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "db6d9bc16bb470f275410175c91b4c7de7593e12",
+  "prompts": {
+    "8802b782d7d51a63": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3e105a1e-d332-484d-9728-f6d239753e40",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mathieu Léger-Dalcourt",
+      "messages": [],
+      "total_additions": 520,
+      "total_deletions": 8,
+      "accepted_lines": 512,
+      "overriden_lines": 0
+    }
+  }
+}
