@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zombie Recipients — Accountability Agent</title>
+  <style>
+    :root {
+      --bg: #0e1116;
+      --panel: #161a22;
+      --panel-2: #1c2230;
+      --line: #2a3142;
+      --fg: #e6edf3;
+      --muted: #8b95a7;
+      --accent: #4cc4ff;
+      --good: #3fb985;
+      --warn: #f0b54a;
+      --bad: #d96b6b;
+      --pending: #f0b54a;
+      --challenged: #c984e0;
+      --verified: #3fb985;
+      --refuted: #5b6478;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .app { display: grid; grid-template-columns: 340px 1fr 420px; height: 100vh; }
+    section { padding: 18px; overflow-y: auto; border-right: 1px solid var(--line); background: var(--panel); }
+    section:last-child { border-right: 0; background: var(--panel-2); }
+    h2 { margin: 0 0 12px 0; font-size: 13px; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; font-weight: 600; }
+    textarea { width: 100%; height: 130px; padding: 10px; background: #0b0f15; color: var(--fg); border: 1px solid var(--line); border-radius: 8px; font: inherit; resize: vertical; }
+    button { margin-top: 10px; padding: 9px 14px; background: var(--accent); color: #04141f; border: 0; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    button:disabled { background: #2a3142; color: var(--muted); cursor: not-allowed; }
+    .status-line { margin-top: 8px; font-size: 12px; color: var(--muted); }
+
+    .step { border-left: 3px solid var(--line); padding: 10px 12px; margin-bottom: 10px; background: #0b0f15; border-radius: 0 6px 6px 0; }
+    .step.done { border-left-color: var(--good); }
+    .step.fail { border-left-color: var(--bad); }
+    .step .label { font-weight: 600; margin-bottom: 6px; }
+    .step pre { margin: 0; padding: 8px; background: #06090f; border-radius: 4px; font: 12px/1.4 ui-monospace, "SF Mono", Menlo, monospace; white-space: pre-wrap; overflow-x: auto; max-height: 160px; overflow-y: auto; }
+    .step .meta { margin-top: 6px; font-size: 11px; color: var(--muted); }
+
+    .finding { border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; background: #0b0f15; }
+    .finding.pending  { border-left: 4px solid var(--pending); }
+    .finding.challenged { border-left: 4px solid var(--challenged); }
+    .finding.verified { border-left: 4px solid var(--verified); }
+    .finding.refuted  { opacity: 0.6; border-left: 4px solid var(--refuted); }
+    .finding .name { font-weight: 700; font-size: 16px; }
+    .finding .meta { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+    .finding .amt { font-size: 26px; font-weight: 700; color: #ff8888; margin: 4px 0 8px; }
+    .finding .summary { font-size: 13px; color: var(--fg); }
+    .finding .verdict { font-size: 12px; margin-top: 8px; padding: 6px 8px; border-radius: 4px; background: #06090f; color: var(--muted); }
+    .verdict .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; margin-right: 6px; text-transform: uppercase; letter-spacing: .04em; }
+    .pill.pending { background: rgba(240,181,74,.15); color: var(--pending); }
+    .pill.challenged { background: rgba(201,132,224,.15); color: var(--challenged); }
+    .pill.verified { background: rgba(63,185,133,.15); color: var(--verified); }
+    .pill.refuted { background: rgba(91,100,120,.18); color: var(--refuted); }
+
+    .empty { color: var(--muted); font-style: italic; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <section>
+    <h2>Question</h2>
+    <textarea id="q">Find federal recipients that received over $1M and went silent within a year — flag candidates worth a closer audit look.</textarea>
+    <button id="ask-btn" onclick="ask()">Investigate</button>
+    <div id="status" class="status-line">Ready.</div>
+    <div style="margin-top:24px">
+      <h2>Suggested questions</h2>
+      <ul style="padding-left:18px;color:var(--muted);font-size:12px">
+        <li>Find federally-funded charities that received over $500K and have not filed a T3010 since 2022.</li>
+        <li>Show me the top 5 Alberta grant recipients from 2018-2021 that have no AB or CRA presence in 2024-2025.</li>
+        <li>Surface 3 audit leads where federal funding exceeded operating revenue at the time of the last grant.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Activity</h2>
+    <div id="activity"><div class="empty">No run yet.</div></div>
+  </section>
+
+  <section>
+    <h2>Briefing — audit leads</h2>
+    <div id="briefing"><div class="empty">No findings yet.</div></div>
+  </section>
+</div>
+
+<script>
+const ws = new WebSocket(`ws://${location.host}/ws`);
+const activity = document.getElementById('activity');
+const briefing = document.getElementById('briefing');
+const status = document.getElementById('status');
+const askBtn = document.getElementById('ask-btn');
+const findings = {};
+
+ws.addEventListener('open',  () => { status.textContent = 'Connected.'; });
+ws.addEventListener('close', () => { status.textContent = 'Disconnected.'; askBtn.disabled = true; });
+
+ws.addEventListener('message', (ev) => {
+  let m;
+  try { m = JSON.parse(ev.data); } catch { return; }
+
+  if (m.type === 'run_start') {
+    activity.innerHTML = '';
+    briefing.innerHTML = '';
+    Object.keys(findings).forEach(k => delete findings[k]);
+    status.textContent = 'Investigating…';
+    askBtn.disabled = true;
+    appendActivityLine(`> ${m.question}`, 'label');
+  }
+
+  if (m.type === 'step_start') {
+    const d = document.createElement('div');
+    d.className = 'step';
+    d.id = 's' + m.id;
+    d.innerHTML = `
+      <div class="label"></div>
+      <pre></pre>
+      <div class="meta status">running…</div>
+    `;
+    d.querySelector('.label').textContent = m.label || '(no label)';
+    d.querySelector('pre').textContent = m.sql || '';
+    activity.appendChild(d);
+    activity.scrollTop = activity.scrollHeight;
+  }
+
+  if (m.type === 'step_complete') {
+    const d = document.getElementById('s' + m.id);
+    if (d) {
+      d.classList.toggle('fail', !!m.is_error);
+      d.classList.toggle('done', !m.is_error);
+      const meta = d.querySelector('.status');
+      const dur = (m.duration_ms != null) ? `${m.duration_ms}ms` : 'done';
+      const rows = (m.rows != null) ? m.rows : (m.rows_estimate != null ? m.rows_estimate : '?');
+      const status = m.is_error ? 'error' : 'done';
+      meta.textContent = `${status} · ${rows} rows · ${dur}`;
+    }
+  }
+
+  if (m.type === 'subagent_stop') {
+    appendActivityLine(`✓ verifier subagent finished`, 'done');
+  }
+
+  if (m.type === 'finding') {
+    let card = findings[m.bn];
+    if (!card) {
+      card = document.createElement('div');
+      card.className = 'finding';
+      briefing.querySelector('.empty')?.remove();
+      briefing.appendChild(card);
+      findings[m.bn] = card;
+    }
+    const status = m.verifier_status || 'pending';
+    card.className = `finding ${status}`;
+    const amt = (m.total_funding_cad || 0) / 1e6;
+    card.innerHTML = `
+      <div class="name"></div>
+      <div class="meta"></div>
+      <div class="amt"></div>
+      <div class="summary"></div>
+      <div class="verdict">
+        <span class="pill ${status}">${status}</span>
+        <span class="notes"></span>
+      </div>`;
+    card.querySelector('.name').textContent = m.entity_name || '(unnamed)';
+    card.querySelector('.meta').textContent =
+      `BN ${m.bn || '—'} · last seen ${m.last_known_year || '—'}` +
+      (m.govt_dependency_pct ? ` · govt-dependency ${(m.govt_dependency_pct*100).toFixed(0)}%` : '');
+    card.querySelector('.amt').textContent = `$${amt.toFixed(2)}M`;
+    card.querySelector('.summary').textContent = m.evidence_summary || '';
+    card.querySelector('.notes').textContent = m.verifier_notes ? `— ${m.verifier_notes}` : '';
+  }
+
+  if (m.type === 'assistant_text') {
+    appendActivityLine(m.text, 'text');
+  }
+
+  if (m.type === 'result') {
+    const dur = m.duration_ms ? `${(m.duration_ms/1000).toFixed(1)}s` : '?';
+    const cost = (m.total_cost_usd != null) ? `$${m.total_cost_usd.toFixed(3)}` : '?';
+    status.textContent = `Done · ${dur} · ${cost} · ${m.num_turns || '?'} turns.`;
+  }
+
+  if (m.type === 'run_complete') {
+    askBtn.disabled = false;
+  }
+
+  if (m.type === 'error') {
+    appendActivityLine(`! error: ${m.error}`, 'fail');
+    status.textContent = 'Error — see activity.';
+    askBtn.disabled = false;
+  }
+});
+
+function appendActivityLine(text, kind) {
+  const d = document.createElement('div');
+  d.className = 'step ' + (kind === 'fail' ? 'fail' : kind === 'done' ? 'done' : '');
+  const lab = document.createElement('div'); lab.className = 'label'; lab.textContent = text;
+  d.appendChild(lab);
+  activity.appendChild(d);
+  activity.scrollTop = activity.scrollHeight;
+}
+
+function ask() {
+  const q = document.getElementById('q').value.trim();
+  if (!q) return;
+  ws.send(JSON.stringify({ type: 'ask', question: q }));
+}
+</script>
+</body>
+</html>
