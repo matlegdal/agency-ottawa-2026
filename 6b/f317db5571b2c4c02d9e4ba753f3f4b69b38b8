@@ -1,0 +1,41 @@
+evaluations/02-ghost-capacity.md
+  1fd27e1532fd000d 1-69
+evaluations/summary.md
+  1fd27e1532fd000d 1-47
+evaluations/07-policy-misalignment.md
+  1fd27e1532fd000d 1-71
+evaluations/01-zombie-recipients.md
+  1fd27e1532fd000d 1-68
+evaluations/04-sole-source-and-amendment-creep.md
+  1fd27e1532fd000d 1-72
+evaluations/09-contract-intelligence.md
+  1fd27e1532fd000d 1-70
+evaluations/10-adverse-media.md
+  1fd27e1532fd000d 1-68
+evaluations/06-related-parties-and-governance-networks.md
+  1fd27e1532fd000d 1-69
+evaluations/05-vendor-concentration.md
+  1fd27e1532fd000d 1-69
+evaluations/08-duplicative-funding.md
+  1fd27e1532fd000d 1-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "6bf317db5571b2c4c02d9e4ba753f3f4b69b38b8",
+  "prompts": {
+    "1fd27e1532fd000d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dce52beb-6a38-4f7c-8c6f-8c79f34787bd",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mathieu Léger-Dalcourt",
+      "messages": [],
+      "total_additions": 1299,
+      "total_deletions": 0,
+      "accepted_lines": 673,
+      "overriden_lines": 0
+    }
+  }
+}
