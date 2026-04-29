@@ -1,0 +1,36 @@
+plans/zombie_agent_corp_pa_addendum.md
+  28f87edc23e64bc1 3-5,160,163-174,177,179-201,203-241,244-260,263,269-292,295,342-361,386-409,463-464,476-496,498-504,506,508-510,512,518,522
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "7b7ead5ae24e4e983752e8956ad5610b443c84b6",
+  "prompts": {
+    "28f87edc23e64bc1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "799948d2-73f7-476e-a3fa-fcb825869e71",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mathieu Léger-Dalcourt",
+      "messages": [],
+      "total_additions": 202,
+      "total_deletions": 488,
+      "accepted_lines": 202,
+      "overriden_lines": 0
+    },
+    "d5c19ad1d966640b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40a5e071-7754-48cc-8eb5-83a79fe348b3",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mathieu Léger-Dalcourt",
+      "messages": [],
+      "total_additions": 396,
+      "total_deletions": 0,
+      "accepted_lines": 396,
+      "overriden_lines": 0
+    }
+  }
+}
