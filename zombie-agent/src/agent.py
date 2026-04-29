@@ -282,14 +282,20 @@ async def run_question(
     Args:
         question: The user's natural-language question.
         sender: An async callable that pushes a JSON-serializable dict to
-            the client. Hooks and the in-process publish_finding tool both
-            use it via the `streaming` module.
+            the primary (question-asking) client. It is registered as the
+            primary sender so that streaming.emit fans every event out to
+            both this client AND any /ws/live dashboard subscribers.
     """
     streaming.set_sender(sender)
     options = build_options()
 
+    # All event emission goes through streaming.emit so that /ws/live
+    # broadcast subscribers (the dashboard) receive every event, not just
+    # the ones that originate from hooks or the in-process MCP tool.
+    emit = streaming.emit
+
     try:
-        await sender({"type": "run_start", "question": question})
+        await emit({"type": "run_start", "question": question})
         async with ClaudeSDKClient(options=options) as client:
             await client.query(question)
             async for msg in client.receive_response():
@@ -302,11 +308,7 @@ async def run_question(
                             isinstance(block, TextBlock)
                             and block.text.strip()
                         ):
-                            # Surface narration from the orchestrator
-                            # AND from the verifier subagent. The UI uses
-                            # `is_subagent` to render verifier text under
-                            # the verifier badge.
-                            await sender(
+                            await emit(
                                 {
                                     "type": "assistant_text",
                                     "text": block.text,
@@ -317,13 +319,10 @@ async def run_question(
                             )
                         elif isinstance(block, ToolUseBlock):
                             await _emit_tool_call(
-                                block, parent_tool_use_id, sender
+                                block, parent_tool_use_id, emit
                             )
                         elif isinstance(block, ThinkingBlock):
-                            # Extended thinking is currently disabled for
-                            # demo speed, but if it gets turned on later
-                            # we already surface the trace.
-                            await sender(
+                            await emit(
                                 {
                                     "type": "thinking",
                                     "text": block.thinking[:1000],
@@ -341,12 +340,10 @@ async def run_question(
                     for block in content:
                         if isinstance(block, ToolResultBlock):
                             await _emit_step_complete(
-                                block, parent_tool_use_id, sender
+                                block, parent_tool_use_id, emit
                             )
                 elif isinstance(msg, TaskStartedMessage):
-                    # Subagent task lifecycle: surface to UI so the
-                    # verifier badge can flip to "active".
-                    await sender(
+                    await emit(
                         {
                             "type": "task_started",
                             "task_id": msg.task_id,
@@ -356,7 +353,7 @@ async def run_question(
                         }
                     )
                 elif isinstance(msg, TaskProgressMessage):
-                    await sender(
+                    await emit(
                         {
                             "type": "task_progress",
                             "task_id": msg.task_id,
@@ -368,7 +365,7 @@ async def run_question(
                         }
                     )
                 elif isinstance(msg, TaskNotificationMessage):
-                    await sender(
+                    await emit(
                         {
                             "type": "task_notification",
                             "task_id": msg.task_id,
@@ -378,16 +375,13 @@ async def run_question(
                         }
                     )
                 elif isinstance(msg, SystemMessage):
-                    # Generic system messages (init, etc.) — keep the UI
-                    # informed for debugging but don't render them by
-                    # default.
                     logger.debug(
                         "SystemMessage subtype=%s data=%s",
                         getattr(msg, "subtype", None),
                         getattr(msg, "data", None),
                     )
                 elif isinstance(msg, ResultMessage):
-                    await sender(
+                    await emit(
                         {
                             "type": "result",
                             "duration_ms": getattr(msg, "duration_ms", None),
@@ -397,9 +391,9 @@ async def run_question(
                             "num_turns": getattr(msg, "num_turns", None),
                         }
                     )
-        await sender({"type": "run_complete"})
+        await emit({"type": "run_complete"})
     except Exception as e:
         logger.exception("Agent run failed")
-        await sender({"type": "error", "error": str(e)})
+        await emit({"type": "error", "error": str(e)})
     finally:
         streaming.set_sender(None)

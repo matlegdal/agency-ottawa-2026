@@ -4,35 +4,36 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Zombie Recipients — Live Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg:         #07090e;
-      --panel:      #0e1219;
-      --panel2:     #131822;
-      --line:       #1e2737;
-      --fg:         #dce6f4;
-      --muted:      #6b7892;
-      --accent:     #4cc4ff;
-      --good:       #3fb985;
-      --warn:       #f0b54a;
-      --bad:        #d96b6b;
-      --pending:    #f0b54a;
-      --challenged: #c984e0;
-      --verified:   #3fb985;
-      --refuted:    #4a5268;
+      --bg:         #F0F2F5;
+      --panel:      #FFFFFF;
+      --panel2:     #F9FAFB;
+      --line:       #E5E7EB;
+      --fg:         #111827;
+      --muted:      #6B7280;
+      --accent:     #1D6AE5;
+      --good:       #059669;
+      --warn:       #D97706;
+      --bad:        #DC2626;
+      --pending:    #D97706;
+      --challenged: #7C3AED;
+      --verified:   #059669;
+      --refuted:    #9CA3AF;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+    html, body { height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.5 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
 
     /* ── Layout ─────────────────────────────────────────────── */
     .root {
       display: grid;
-      grid-template-rows: 56px 120px 1fr;
+      grid-template-rows: 60px 104px 1fr;
       grid-template-columns: 1fr 360px;
       height: 100vh;
-      gap: 1px;
-      background: var(--line);
     }
 
     header {
@@ -40,67 +41,85 @@
       display: flex; align-items: center; justify-content: space-between;
       padding: 0 24px;
       background: var(--panel);
-      border-bottom: 1px solid var(--line);
+      box-shadow: 0 1px 0 var(--line), 0 2px 8px rgba(0,0,0,0.04);
+      z-index: 10;
     }
 
     .kpi-row {
       grid-column: 1 / -1;
-      display: flex; align-items: stretch; gap: 1px;
-      background: var(--line);
+      display: flex; align-items: stretch;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
     }
 
     .cards-pane {
       background: var(--bg);
       overflow-y: auto;
-      padding: 18px;
+      padding: 20px;
+      border-right: 1px solid var(--line);
     }
 
     .feed-pane {
       background: var(--panel);
       overflow-y: auto;
       padding: 16px;
-      border-left: 1px solid var(--line);
     }
 
     /* ── Header ─────────────────────────────────────────────── */
-    .logo { font-size: 15px; font-weight: 700; letter-spacing: .04em; color: var(--fg); }
+    .logo-wrap { display: flex; flex-direction: column; gap: 2px; }
+    .logo { font-size: 14px; font-weight: 700; letter-spacing: .05em; color: var(--fg); text-transform: uppercase; }
     .logo span { color: var(--bad); }
-    .conn { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--refuted); }
-    .dot.live { background: var(--good); animation: pulse 2s ease-in-out infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-    .timer { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .logo-sub { font-size: 10px; color: var(--muted); letter-spacing: .07em; text-transform: uppercase; font-weight: 500; }
+    .header-right { display: flex; align-items: center; gap: 20px; }
+    .conn { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 7px; font-weight: 500; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--refuted); flex-shrink: 0; }
+    .dot.live { background: var(--good); animation: dot-pulse 2s ease-in-out infinite; }
+    @keyframes dot-pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(5,150,105,0.45); }
+      50%      { box-shadow: 0 0 0 5px rgba(5,150,105,0); }
+    }
+    .timer {
+      font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 500;
+      background: var(--panel2); border: 1px solid var(--line); border-radius: 6px;
+      padding: 3px 10px; min-width: 60px; text-align: center;
+    }
 
     /* ── KPI tiles ───────────────────────────────────────────── */
     .kpi {
       flex: 1;
       display: flex; flex-direction: column; justify-content: center;
-      padding: 0 24px;
+      padding: 0 20px;
       background: var(--panel);
       position: relative;
+      border-right: 1px solid var(--line);
+      transition: background .15s;
     }
+    .kpi:last-child { border-right: none; }
+    .kpi:hover { background: var(--panel2); }
     .kpi::after {
-      content: ''; position: absolute; left: 0; top: 20%; bottom: 20%;
-      width: 3px; border-radius: 2px;
+      content: ''; position: absolute; left: 0; top: 22%; bottom: 22%;
+      width: 3px; border-radius: 0 2px 2px 0;
     }
-    .kpi.funding::after  { background: var(--bad); }
-    .kpi.total::after    { background: var(--accent); }
-    .kpi.verified::after { background: var(--verified); }
+    .kpi.funding::after    { background: var(--bad); }
+    .kpi.total::after      { background: var(--accent); }
+    .kpi.verified::after   { background: var(--verified); }
     .kpi.challenged::after { background: var(--challenged); }
-    .kpi.refuted::after  { background: var(--refuted); }
-    .kpi.pending::after  { background: var(--pending); }
+    .kpi.refuted::after    { background: var(--refuted); }
+    .kpi.pending::after    { background: var(--pending); }
 
-    .kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: 4px; }
+    .kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin-bottom: 5px; font-weight: 600; }
     .kpi-value {
-      font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums;
-      line-height: 1; transition: color .4s;
+      font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums;
+      line-height: 1; color: var(--fg); transition: color .3s;
     }
-    .kpi-value.flash { animation: flash-yellow .5s ease-out; }
-    @keyframes flash-yellow { 0%{color:var(--warn)} 100%{color:inherit} }
+    .kpi.funding .kpi-value { color: var(--bad); }
+    .kpi-value.flash { animation: flash-accent .45s ease-out; }
+    @keyframes flash-accent { 0%{color:var(--accent)} 100%{color:inherit} }
 
     /* ── Section headings ────────────────────────────────────── */
     .pane-title {
-      font-size: 10px; text-transform: uppercase; letter-spacing: .1em;
+      font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
       color: var(--muted); margin-bottom: 14px; font-weight: 600;
     }
 
@@ -113,56 +132,72 @@
 
     .card {
       border: 1px solid var(--line);
-      border-radius: 12px;
+      border-radius: 10px;
       padding: 18px 18px 14px;
-      background: var(--panel2);
+      background: var(--panel);
       position: relative;
       overflow: hidden;
-      transition: border-color .3s, box-shadow .3s;
+      transition: border-color .2s, box-shadow .2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.10);
+      border-color: #D1D5DB;
     }
     .card::before {
       content: ''; position: absolute; left: 0; top: 0; bottom: 0;
-      width: 4px; border-radius: 12px 0 0 12px;
+      width: 4px; border-radius: 10px 0 0 10px;
       transition: background .4s;
     }
     .card.pending::before    { background: var(--pending); }
     .card.challenged::before { background: var(--challenged); }
-    .card.verified::before   { background: var(--verified); box-shadow: 0 0 18px rgba(63,185,133,.25); }
+    .card.verified::before   { background: var(--verified); }
     .card.refuted::before    { background: var(--refuted); }
-    .card.verified { box-shadow: 0 0 0 1px rgba(63,185,133,.2); }
+    .card.verified {
+      box-shadow: 0 0 0 1px rgba(5,150,105,0.15), 0 2px 8px rgba(5,150,105,0.08);
+    }
+    .card.verified:hover {
+      box-shadow: 0 0 0 1px rgba(5,150,105,0.25), 0 6px 16px rgba(5,150,105,0.12);
+    }
 
     .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
-    .card-name { font-size: 15px; font-weight: 700; flex: 1; line-height: 1.3; }
+    .card-name { font-size: 14px; font-weight: 700; color: var(--fg); flex: 1; min-width: 0; line-height: 1.3; }
     .pill {
-      display: inline-block; padding: 3px 10px; border-radius: 999px;
+      display: inline-block; padding: 3px 9px; border-radius: 999px;
       font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
       white-space: nowrap; flex-shrink: 0;
     }
-    .pill.pending    { background: rgba(240,181,74,.15);  color: var(--pending); }
-    .pill.challenged { background: rgba(201,132,224,.15); color: var(--challenged); }
-    .pill.verified   { background: rgba(63,185,133,.15);  color: var(--verified); }
-    .pill.refuted    { background: rgba(74,82,104,.2);    color: var(--refuted); }
+    .pill.pending    { background: #FEF3C7; color: #92400E; }
+    .pill.challenged { background: #EDE9FE; color: #5B21B6; }
+    .pill.verified   { background: #D1FAE5; color: #047857; }
+    .pill.refuted    { background: #F3F4F6; color: #4B5563; }
 
     .card-bn { font-size: 11px; color: var(--muted); margin-bottom: 10px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
-    .card-amount { font-size: 28px; font-weight: 700; color: var(--bad); margin-bottom: 2px; line-height: 1; }
+    .card-amount { font-size: 26px; font-weight: 700; color: var(--bad); margin-bottom: 2px; line-height: 1; }
     .card-meta { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
-    .card-dep { display: inline-block; padding: 2px 8px; border-radius: 4px; background: rgba(217,107,107,.12); color: var(--bad); font-size: 11px; font-weight: 600; margin-bottom: 10px; }
-    .card-evidence { font-size: 12px; color: var(--fg); line-height: 1.5; }
-    .card-verdict { margin-top: 10px; padding: 8px 10px; border-radius: 6px; background: #06090f; font-size: 11px; color: var(--muted); line-height: 1.4; }
+    .card-dep { display: inline-block; padding: 2px 8px; border-radius: 4px; background: #FEE2E2; color: var(--bad); font-size: 11px; font-weight: 600; margin-bottom: 10px; }
+    .card-evidence { font-size: 12px; color: #374151; line-height: 1.55; }
+    .card-verdict {
+      margin-top: 10px; padding: 8px 10px; border-radius: 6px;
+      background: var(--panel2); border-left: 3px solid var(--line);
+      font-size: 11px; color: var(--muted); line-height: 1.5;
+    }
 
-    .card-appear { animation: card-in .35s ease-out; }
-    @keyframes card-in { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: none; } }
+    .card-appear { animation: card-in .3s ease-out; }
+    @keyframes card-in { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: none; } }
 
     /* ── Activity feed ───────────────────────────────────────── */
     .feed-item {
-      padding: 8px 0;
-      border-bottom: 1px solid var(--line);
+      padding: 7px 8px;
+      border-radius: 6px;
       font-size: 12px;
       line-height: 1.5;
+      margin-bottom: 2px;
+      transition: background .12s;
     }
-    .feed-item:last-child { border-bottom: 0; }
+    .feed-item:hover { background: var(--panel2); }
 
-    .feed-label { font-weight: 600; color: var(--fg); margin-bottom: 2px; }
+    .feed-label { font-weight: 600; color: var(--fg); margin-bottom: 1px; }
     .feed-meta { color: var(--muted); font-size: 11px; }
     .feed-meta.ok   { color: var(--good); }
     .feed-meta.err  { color: var(--bad); }
@@ -172,22 +207,34 @@
     .feed-item.type-subagent_stop .feed-label { color: var(--challenged); }
     .feed-item.type-result .feed-label       { color: var(--good); }
     .feed-item.type-error .feed-label        { color: var(--bad); }
-    .feed-item.type-assistant_text .feed-label { color: var(--muted); font-style: italic; font-weight: normal; }
+    .feed-item.type-assistant_text .feed-label { color: var(--muted); font-style: italic; font-weight: 400; }
 
-    .feed-time { font-size: 10px; color: var(--muted); margin-right: 6px; font-variant-numeric: tabular-nums; }
+    .feed-time {
+      font-size: 10px; color: var(--muted); margin-right: 6px;
+      font-variant-numeric: tabular-nums; font-weight: 400;
+    }
 
-    .empty { color: var(--muted); font-style: italic; font-size: 12px; }
+    .empty {
+      color: var(--muted); font-style: italic; font-size: 12px;
+      border: 1px dashed var(--line); border-radius: 8px;
+      padding: 28px 20px; text-align: center;
+    }
   </style>
 </head>
 <body>
 <div class="root">
 
   <header>
-    <div class="logo">ZOMBIE RECIPIENTS <span>&#9632;</span> Live Dashboard</div>
-    <div class="timer" id="timer">–</div>
-    <div class="conn">
-      <div class="dot" id="dot"></div>
-      <span id="conn-label">Connecting…</span>
+    <div class="logo-wrap">
+      <div class="logo">Zombie Recipients <span>&#9632;</span> Live Dashboard</div>
+      <div class="logo-sub">AI for Accountability &middot; Ottawa 2026</div>
+    </div>
+    <div class="header-right">
+      <div class="timer" id="timer">–</div>
+      <div class="conn">
+        <div class="dot" id="dot"></div>
+        <span id="conn-label">Connecting…</span>
+      </div>
     </div>
   </header>
 
@@ -305,16 +352,17 @@ function upsertCard(m) {
     el.className = `card ${m.verifier_status} card-appear`;
     grid.prepend(el);
     findings[m.bn] = { data: m, cardEl: el };
-    renderCard(el, m);
+    try { renderCard(el, m); } catch(e) { console.error('renderCard:', e); }
   } else {
     existing.data = m;
     existing.cardEl.className = `card ${m.verifier_status}`;
-    renderCard(existing.cardEl, m);
+    try { renderCard(existing.cardEl, m); } catch(e) { console.error('renderCard:', e); }
   }
   updateKPIs();
 }
 
 function renderCard(el, m) {
+  const name = m.entity_name || m.name || m.legal_name || m.recipient_legal_name || '(unknown entity)';
   const status = m.verifier_status || 'pending';
   const amt = m.total_funding_cad || 0;
   const amtFmt = amt >= 1e6
@@ -326,13 +374,14 @@ function renderCard(el, m) {
   const verdict = m.verifier_notes
     ? `<div class="card-verdict">${esc(m.verifier_notes)}</div>`
     : '';
-  const trail = (m.sql_trail || []).length
-    ? `<div class="feed-meta" style="margin-top:6px">Queries: ${esc(m.sql_trail.join(' · '))}</div>`
+  const trailArr = Array.isArray(m.sql_trail) ? m.sql_trail : [];
+  const trail = trailArr.length
+    ? `<div class="feed-meta" style="margin-top:6px">Queries: ${esc(trailArr.join(' · '))}</div>`
     : '';
 
   el.innerHTML = `
     <div class="card-top">
-      <div class="card-name">${esc(m.entity_name)}</div>
+      <div class="card-name">${esc(name)}</div>
       <div class="pill ${status}">${status}</div>
     </div>
     <div class="card-bn">${esc(m.bn)} &middot; last known ${m.last_known_year || '—'}</div>
@@ -386,7 +435,7 @@ function handle(m) {
       feedEl.innerHTML = '';
       updateKPIs();
       startTimer();
-      feedItem('run_start', `&#x25B6; Investigation started`, esc(m.question || ''));
+      feedItem('run_start', `&#x25B6; New investigation`, esc((m.question || '').slice(0, 120)));
       break;
 
     case 'step_start':
@@ -405,10 +454,31 @@ function handle(m) {
       break;
     }
 
+    case 'tool_call':
+      feedItem(
+        m.is_subagent ? 'subagent_stop' : 'step_start',
+        `${m.icon || '⚙'} ${esc(m.label || m.tool_name)}${m.summary ? ` <span style="font-weight:normal;color:var(--muted)">· ${esc(m.summary)}</span>` : ''}`,
+        m.is_subagent ? '(verifier)' : '',
+        m.id
+      );
+      break;
+
+    case 'tool_result':
+      updateFeedMeta(m.id, m.is_error ? 'err' : 'ok', m.is_error ? 'error' : 'done');
+      break;
+
+    case 'task_started':
+      feedItem('subagent_stop', `&#x1F916; Verifier subagent started`);
+      break;
+
+    case 'task_notification':
+      feedItem('subagent_stop', `&#x2713; Verifier: ${esc((m.summary || m.status || '').slice(0, 100))}`);
+      break;
+
     case 'finding':
       upsertCard(m);
       feedItem('finding',
-        `&#x25A6; Finding: ${esc(m.entity_name)}`,
+        `&#x25A6; Finding: ${esc(m.entity_name || m.name || m.legal_name || m.recipient_legal_name || '(unknown)')}`,
         `status → <strong>${m.verifier_status}</strong>`
       );
       break;
@@ -427,17 +497,18 @@ function handle(m) {
       stopTimer();
       if (runStart) {
         const elapsed = ((Date.now() - runStart) / 1000).toFixed(1);
-        timerEl.textContent = `${elapsed}s total`;
+        timerEl.textContent = `${elapsed}s`;
       }
       feedItem('result', `&#x25CF; Run complete`,
         [
-          m.num_turns   ? `${m.num_turns} turns`            : '',
+          m.num_turns != null ? `${m.num_turns} turns` : '',
           m.total_cost_usd != null ? `$${m.total_cost_usd.toFixed(4)}` : '',
         ].filter(Boolean).join(' · ')
       );
       break;
 
     case 'run_complete':
+      stopTimer();
       break;
 
     case 'error':
