@@ -61,6 +61,24 @@
       background: var(--panel2); border: 1px solid var(--line); border-radius: 6px;
       padding: 3px 10px; min-width: 56px; text-align: center;
     }
+    .report-btn {
+      padding: 5px 13px; border-radius: 6px; font-size: 12px; font-weight: 600;
+      background: var(--accent); color: #fff; text-decoration: none; opacity: 0.35;
+      pointer-events: none; transition: opacity .2s; font-family: inherit;
+      white-space: nowrap;
+    }
+    .report-btn.ready { opacity: 1; pointer-events: auto; }
+    .stop-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px; border-radius: 6px; flex-shrink: 0;
+      border: 1px solid var(--line); background: var(--panel2);
+      cursor: pointer; color: var(--muted);
+      transition: background .15s, color .15s, border-color .15s;
+      font-family: inherit;
+    }
+    .stop-btn:not(:disabled):hover { background: #FEE2E2; color: var(--bad); border-color: #FCA5A5; }
+    .stop-btn.running { color: var(--bad); border-color: #FCA5A5; background: #FFF1F2; }
+    .stop-btn:disabled { opacity: 0.35; cursor: not-allowed; }
     .conn { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 7px; font-weight: 500; }
     .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--refuted); flex-shrink: 0; }
     .dot.live { background: var(--good); animation: dot-pulse 2s ease-in-out infinite; }
@@ -90,8 +108,9 @@
       font-variant-numeric: tabular-nums; line-height: 1;
       transition: color .3s;
     }
-    .kpi-hero-value.flash { animation: flash-accent .45s ease-out; }
-    @keyframes flash-accent { 0%{opacity:.5} 100%{opacity:1} }
+    .kpi-hero-value.flash,
+    .legend-count.flash    { animation: flash-accent .5s ease-out; }
+    @keyframes flash-accent { 0%{color:var(--accent)} 100%{color:inherit} }
 
     .kpi-bar-section {
       flex: 1; display: flex; flex-direction: column; justify-content: center;
@@ -544,7 +563,13 @@
       <div class="logo-sub">AI for Accountability &middot; Ottawa 2026</div>
     </div>
     <div class="header-right">
+      <a href="/report" target="_blank" id="report-btn" class="report-btn">Generate Report</a>
       <div class="timer" id="timer">–</div>
+      <button class="stop-btn" id="stop-btn" title="Stop investigation" disabled>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+          <rect x="1" y="1" width="10" height="10" rx="2"/>
+        </svg>
+      </button>
       <button class="feed-toggle" id="feed-toggle" title="Live Activity">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round">
           <line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="10" y2="12"/>
@@ -870,6 +895,7 @@ function upsertCard(m) {
   }
   updateKPIs();
   if (!document.getElementById('table-view').hidden) syncTable();
+  document.getElementById('report-btn')?.classList.add('ready');
 }
 
 function renderCard(el, m) {
@@ -950,6 +976,7 @@ function handle(m) {
       applyFilter('all');
       updateKPIs();
       startTimer();
+      setRunning(true);
       feedItem('run_start', `&#x25B6; New investigation`, esc((m.question || '').slice(0, 120)));
       break;
 
@@ -1013,10 +1040,18 @@ function handle(m) {
 
     case 'run_complete':
       stopTimer();
+      setRunning(false);
+      break;
+
+    case 'run_cancelled':
+      stopTimer();
+      setRunning(false);
+      feedItem('error', '&#x25A0; Investigation stopped');
       break;
 
     case 'error':
       stopTimer();
+      setRunning(false);
       feedItem('error', `&#x26A0; Error: ${esc(m.error || 'unknown')}`);
       break;
   }
@@ -1055,13 +1090,45 @@ window.addEventListener('resize', () => {
   if (window.innerWidth > 768) closeFeed();
 });
 
+// ── Stop button ────────────────────────────────────────────────────
+const stopBtn = document.getElementById('stop-btn');
+
+function setRunning(running) {
+  stopBtn.disabled = !running;
+  if (running) stopBtn.classList.add('running');
+  else stopBtn.classList.remove('running');
+}
+
+stopBtn.addEventListener('click', async () => {
+  stopBtn.disabled = true;
+  try { await fetch('/api/stop', { method: 'POST' }); }
+  catch { /**/ }
+});
+
 // ── WebSocket ──────────────────────────────────────────────────────
 const dot   = document.getElementById('dot');
 const label = document.getElementById('conn-label');
 
+async function triggerRun() {
+  try {
+    const r = await fetch('/api/run', { method: 'POST' });
+    const d = await r.json();
+    // If already running when we connected, sync the stop-button state
+    if (!d.started) {
+      const s = await fetch('/api/status');
+      const st = await s.json();
+      if (st.running) setRunning(true);
+    }
+  } catch { /**/ }
+}
+
 function connect() {
   const ws = new WebSocket(`ws://${location.host}/ws/live`);
-  ws.addEventListener('open',    () => { dot.classList.add('live'); label.textContent = 'Live'; });
+  ws.addEventListener('open', () => {
+    dot.classList.add('live');
+    label.textContent = 'Live';
+    triggerRun();
+  });
   ws.addEventListener('close',   () => { dot.classList.remove('live'); label.textContent = 'Reconnecting…'; setTimeout(connect, 2000); });
   ws.addEventListener('error',   () => ws.close());
   ws.addEventListener('message', ev => { try { handle(JSON.parse(ev.data)); } catch { /**/ } });

@@ -30,6 +30,13 @@ Sender = Callable[[dict[str, Any]], Awaitable[None]]
 _sender: Optional[Sender] = None
 _step_starts: dict[str, float] = {}
 _broadcast_clients: set[Sender] = set()
+_event_hook: Optional[Callable[[dict[str, Any]], None]] = None
+
+
+def set_event_hook(fn: Optional[Callable[[dict[str, Any]], None]]) -> None:
+    """Register a sync callback invoked on every emitted event (e.g. RunStore)."""
+    global _event_hook
+    _event_hook = fn
 
 
 def set_sender(fn: Optional[Sender]) -> None:
@@ -60,6 +67,11 @@ async def emit(payload: dict[str, Any]) -> None:
             await fn(payload)
         except Exception:
             _broadcast_clients.discard(fn)
+    if _event_hook is not None:
+        try:
+            _event_hook(payload)
+        except Exception:
+            pass
 
 
 def mark_step_start(tool_use_id: str) -> None:
