@@ -1,0 +1,5 @@
+.env
+.env.public
+node_modules/
+data/raw/*.zip
+data/csv/
