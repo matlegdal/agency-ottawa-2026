@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Zombie Recipients — Audit-Lead Architecture · AI for Accountability Hackathon</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..900,30..100&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  /* ─────────────────────────────────────────────────────────────
+     Forensic dossier aesthetic.
+     Paper, ink, surgical accents. Editorial type.
+     ───────────────────────────────────────────────────────────── */
+  :root {
+    --paper:        #f6f1e3;
+    --paper-warm:   #ede4cc;
+    --paper-deep:   #e2d6b3;
+    --ink:          #14100a;
+    --ink-soft:     #4a3f2c;
+    --ink-faint:    #8a7c5f;
+    --rule:         #2a1f10;
+    --rule-soft:    #cfc1a0;
+    --rule-hair:    #e2d8be;
+
+    --red:          #a82119;     /* refuted / danger / stamp */
+    --red-soft:     #d8a3a0;
+    --green:        #25533a;     /* verified */
+    --green-soft:   #a8c4af;
+    --amber:        #b8761a;     /* challenged */
+    --amber-soft:   #e3c481;
+    --navy:         #142e52;     /* orchestrator / data flow */
+    --navy-soft:    #a4b2c8;
+    --violet:       #4a2d6e;     /* verifier / adversarial */
+    --violet-soft:  #b9a2cf;
+
+    --display: 'Fraunces', 'Times New Roman', serif;
+    --body:    'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+    --mono:    'IBM Plex Mono', 'Menlo', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--body);
+    background-color: var(--paper);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.55;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+
+    /* hairline grid texture, like ledger paper */
+    background-image:
+      linear-gradient(to right, rgba(42, 31, 16, 0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(42, 31, 16, 0.035) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-position: 0 0;
+  }
+
+  ::selection { background-color: var(--ink); color: var(--paper); }
+
+  a { color: inherit; }
+
+  /* ───── Layout ─────  */
+  .page {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 28px 56px 80px;
+    position: relative;
+  }
+
+  @media (max-width: 900px) {
+    .page { padding: 20px 24px 60px; }
+    body { font-size: 14px; }
+  }
+
+  /* ───── Document chrome ─────  */
+  .docrule {
+    border-top: 1.5px solid var(--rule);
+    border-bottom: 1.5px solid var(--rule);
+    padding: 10px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 28px;
+  }
+  .docrule span:nth-child(2) { letter-spacing: 0.06em; }
+  .docrule .stamp {
+    color: var(--red);
+    border: 1.5px solid var(--red);
+    padding: 3px 10px 2px;
+    letter-spacing: 0.18em;
+    font-weight: 600;
+    transform: rotate(-1.5deg);
+    background-color: rgba(168, 33, 25, 0.06);
+  }
+
+  /* ───── Hero ─────  */
+  .hero {
+    padding-bottom: 36px;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--red);
+    margin-bottom: 18px;
+  }
+
+  h1.title {
+    font-family: var(--display);
+    font-weight: 350;
+    font-size: clamp(48px, 8vw, 110px);
+    line-height: 0.92;
+    letter-spacing: -0.025em;
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+    margin-bottom: 22px;
+  }
+  h1.title em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--red);
+  }
+
+  .deck {
+    font-family: var(--display);
+    font-style: italic;
+    font-weight: 350;
+    font-size: clamp(18px, 1.7vw, 22px);
+    line-height: 1.42;
+    color: var(--ink-soft);
+    max-width: 720px;
+    border-left: 2px solid var(--red);
+    padding-left: 18px;
+  }
+
+  .scoreblock {
+    font-family: var(--mono);
+    text-align: right;
+    line-height: 1.2;
+  }
+  .scoreblock .num {
+    font-family: var(--display);
+    font-weight: 350;
+    font-size: 92px;
+    line-height: 0.8;
+    letter-spacing: -0.04em;
+    color: var(--green);
+    font-variation-settings: "opsz" 144;
+  }
+  .scoreblock .num span { color: var(--ink-faint); font-size: 0.55em; }
+  .scoreblock .lbl {
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-top: 8px;
+  }
+
+  /* ───── Section header ─────  */
+  .section {
+    margin-top: 64px;
+    position: relative;
+  }
+  .section-head {
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    gap: 18px;
+    align-items: baseline;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 8px;
+  }
+  .section-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--ink-faint);
+    padding-top: 4px;
+  }
+  .section-num::before {
+    content: "§";
+    margin-right: 4px;
+    color: var(--red);
+  }
+  .section-title {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(28px, 3.4vw, 40px);
+    letter-spacing: -0.015em;
+    line-height: 1.05;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+  }
+  .section-title em { font-style: italic; color: var(--red); font-weight: 350; }
+  .section-sub {
+    grid-column: 2;
+    font-family: var(--display);
+    font-style: italic;
+    font-weight: 350;
+    font-size: 16px;
+    color: var(--ink-soft);
+    margin-top: 6px;
+  }
+
+  /* ───── Statline (key/value strip) ─────  */
+  .statline {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    margin-top: 28px;
+  }
+  .stat {
+    padding: 18px 22px;
+    border-right: 1px solid var(--rule-soft);
+  }
+  .stat:last-child { border-right: none; }
+  .stat .v {
+    font-family: var(--display);
+    font-weight: 350;
+    font-size: clamp(28px, 3.2vw, 38px);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    margin-bottom: 6px;
+  }
+  .stat .v small { font-size: 0.55em; color: var(--ink-faint); margin-left: 2px; font-weight: 400;}
+  .stat .k {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  @media (max-width: 900px) {
+    .statline { grid-template-columns: repeat(2, 1fr); }
+    .stat { border-bottom: 1px solid var(--rule-soft); }
+    .stat:nth-child(2n) { border-right: none; }
+  }
+
+  /* ───── Architecture diagram frame ─────  */
+  .arch-frame {
+    background-color: var(--paper-warm);
+    border: 1.5px solid var(--rule);
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .arch-frame::before,
+  .arch-frame::after {
+    content: "";
+    position: absolute;
+    width: 14px; height: 14px;
+    border: 1.5px solid var(--rule);
+    background: var(--paper);
+  }
+  .arch-frame::before { top: -8px; left: -8px; }
+  .arch-frame::after  { bottom: -8px; right: -8px; }
+
+  .arch-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    padding-bottom: 14px;
+    border-bottom: 1px dashed var(--rule-soft);
+    margin-bottom: 8px;
+  }
+  .arch-toolbar .legend { display: flex; gap: 22px; }
+  .arch-toolbar .legend i {
+    display: inline-block;
+    width: 12px; height: 12px;
+    margin-right: 6px;
+    vertical-align: -2px;
+    border: 1px solid var(--rule);
+  }
+  .legend .l-orch { background: var(--navy); }
+  .legend .l-ver  { background: var(--violet); }
+  .legend .l-data { background: var(--green); }
+  .legend .l-ext  { background: var(--paper); }
+
+  svg.arch {
+    display: block;
+    width: 100%;
+    height: auto;
+    font-family: var(--body);
+  }
+
+  /* SVG node base styles */
+  svg.arch .node-fill-orch  { fill: var(--navy);   }
+  svg.arch .node-fill-ver   { fill: var(--violet); }
+  svg.arch .node-fill-data  { fill: var(--green);  }
+  svg.arch .node-fill-ext   { fill: var(--paper);  }
+  svg.arch .stroke-rule     { stroke: var(--rule); }
+  svg.arch .stroke-soft     { stroke: var(--rule-soft); }
+
+  svg.arch text {
+    fill: var(--ink);
+    font-family: var(--body);
+    font-weight: 400;
+  }
+  svg.arch text.title {
+    font-family: var(--display);
+    font-variation-settings: "opsz" 144;
+    font-weight: 400;
+  }
+  svg.arch text.mono {
+    font-family: var(--mono);
+    font-weight: 400;
+  }
+  svg.arch text.label-light { fill: var(--paper); }
+  svg.arch text.callout {
+    font-family: var(--display);
+    font-style: italic;
+    font-weight: 350;
+    fill: var(--red);
+  }
+  svg.arch text.callout-ink {
+    font-family: var(--display);
+    font-style: italic;
+    font-weight: 350;
+    fill: var(--ink-soft);
+  }
+
+  /* the small dotted callout pointers */
+  svg.arch .pointer { stroke: var(--red); stroke-dasharray: 2 3; fill: none; stroke-width: 1; }
+
+  /* connector arrows */
+  svg.arch .flow-primary { stroke: var(--ink); stroke-width: 1.6; fill: none; }
+  svg.arch .flow-secondary { stroke: var(--ink-soft); stroke-width: 1.2; stroke-dasharray: 4 3; fill: none; }
+  svg.arch .flow-data { stroke: var(--green); stroke-width: 1.6; fill: none; }
+  svg.arch .flow-control { stroke: var(--violet); stroke-width: 1.4; stroke-dasharray: 5 3; fill: none; }
+
+  /* gentle pulse on the verifier ring */
+  @keyframes verifier-pulse {
+    0%, 100% { opacity: 0.45; }
+    50%      { opacity: 1; }
+  }
+  svg.arch .ver-ring {
+    fill: none;
+    stroke: var(--violet);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    animation: verifier-pulse 3.2s ease-in-out infinite;
+  }
+
+  /* ───── Two-col body ─────  */
+  .twocol {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    margin-top: 28px;
+  }
+  @media (max-width: 900px) { .twocol { grid-template-columns: 1fr; gap: 28px; } }
+
+  .prose p {
+    margin-bottom: 14px;
+    font-size: 15px;
+    line-height: 1.6;
+    max-width: 64ch;
+  }
+  .prose p strong { color: var(--ink); font-weight: 600; }
+  .prose .lede {
+    font-family: var(--display);
+    font-style: italic;
+    font-size: 19px;
+    font-weight: 350;
+    line-height: 1.45;
+    color: var(--ink);
+  }
+
+  /* ───── 14-step chain ─────  */
+  .chain {
+    border-top: 1px solid var(--rule);
+    margin-top: 18px;
+    counter-reset: step;
+  }
+  .chain .step {
+    display: grid;
+    grid-template-columns: 36px 110px 1fr 110px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--rule-hair);
+    font-size: 14px;
+  }
+  .chain .step .ord {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    letter-spacing: 0.06em;
+  }
+  .chain .step .id {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: 0.04em;
+  }
+  .chain .step .desc {
+    font-family: var(--body);
+    color: var(--ink-soft);
+    line-height: 1.4;
+    padding-right: 14px;
+  }
+  .chain .step .verdict {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    text-align: right;
+    font-weight: 600;
+  }
+  .verdict.refuted   { color: var(--red); }
+  .verdict.verified  { color: var(--green); }
+  .verdict.ambiguous { color: var(--amber); }
+
+  .chain .step.headstep {
+    background: linear-gradient(to right, var(--paper-warm), transparent);
+    border-bottom: 1px solid var(--rule);
+  }
+  .chain .step.headstep .desc { color: var(--ink); font-weight: 500; }
+
+  .chain-foot {
+    padding: 12px 0 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--red);
+    letter-spacing: 0.08em;
+  }
+  .chain-foot::before { content: "▲ "; }
+
+  /* ───── Verification flow visualization ─────  */
+  .vflow {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-top: 28px;
+  }
+  @media (max-width: 900px) { .vflow { grid-template-columns: repeat(2, 1fr); } }
+  .vcard {
+    border: 1.5px solid var(--rule-soft);
+    background: var(--paper);
+    padding: 16px 18px 18px;
+    position: relative;
+  }
+  .vcard .pill {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border: 1px solid currentColor;
+    margin-bottom: 14px;
+    font-weight: 500;
+  }
+  .vcard.pending   { border-color: var(--amber-soft); }
+  .vcard.pending   .pill { color: var(--amber); }
+  .vcard.challenged{ border-color: var(--violet); border-style: dashed; animation: challenged-pulse 2s ease-in-out infinite; }
+  .vcard.challenged .pill { color: var(--violet); }
+  .vcard.verified  { border-color: var(--green); border-width: 1.5px; }
+  .vcard.verified  .pill { color: var(--green); }
+  .vcard.refuted   { border-color: var(--red-soft); }
+  .vcard.refuted   .pill { color: var(--red); }
+  .vcard.refuted .vbody { text-decoration: line-through; color: var(--ink-faint); }
+
+  @keyframes challenged-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(74, 45, 110, 0.0); }
+    50%      { box-shadow: 0 0 0 5px rgba(74, 45, 110, 0.10); }
+  }
+
+  .vcard .vlabel {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-faint);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .vcard .vbody {
+    font-family: var(--display);
+    font-style: italic;
+    font-weight: 350;
+    font-size: 16px;
+    line-height: 1.35;
+    color: var(--ink);
+  }
+  .vcard .vmeta {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    margin-top: 12px;
+    line-height: 1.5;
+  }
+  .vcard .vmeta b { color: var(--ink); font-weight: 600; }
+
+  .vflow-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    grid-column: span 4;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    padding: 6px 0;
+  }
+
+  /* ───── Innovations grid ─────  */
+  .ino-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border: 1.5px solid var(--rule);
+    background: var(--paper-warm);
+    margin-top: 22px;
+  }
+  @media (max-width: 900px) { .ino-grid { grid-template-columns: 1fr; } }
+  .ino {
+    border-right: 1px solid var(--rule-soft);
+    border-bottom: 1px solid var(--rule-soft);
+    padding: 18px 20px 20px;
+    position: relative;
+    background: var(--paper);
+  }
+  .ino:nth-child(3n) { border-right: none; }
+  .ino:nth-last-child(-n+3) { border-bottom: none; }
+  @media (max-width: 900px) {
+    .ino { border-right: none; border-bottom: 1px solid var(--rule-soft) !important; }
+    .ino:last-child { border-bottom: none !important; }
+  }
+  .ino .num {
+    font-family: var(--display);
+    font-weight: 350;
+    font-style: italic;
+    font-size: 38px;
+    line-height: 1;
+    color: var(--red);
+    letter-spacing: -0.02em;
+    position: absolute;
+    top: 14px;
+    right: 18px;
+    opacity: 0.85;
+  }
+  .ino .name {
+    font-family: var(--display);
+    font-weight: 450;
+    font-size: 17px;
+    line-height: 1.2;
+    color: var(--ink);
+    margin-bottom: 8px;
+    padding-right: 44px;
+    letter-spacing: -0.005em;
+  }
+  .ino .desc {
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+  }
+  .ino .desc code {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--navy);
+    background: var(--paper-warm);
+    padding: 0 4px;
+  }
+
+  /* ───── Funnel ─────  */
+  .funnel-wrap {
+    margin-top: 26px;
+    padding: 22px 26px 26px;
+    background: var(--paper);
+    border: 1.5px solid var(--rule);
+  }
+  .funnel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 1px dashed var(--rule-soft);
+    padding-bottom: 10px;
+    margin-bottom: 16px;
+  }
+  .funnel-head .t {
+    font-family: var(--display);
+    font-weight: 450;
+    font-size: 20px;
+    letter-spacing: -0.01em;
+  }
+  .funnel-head .s {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .funnel-rows { display: grid; gap: 7px; }
+  .frow {
+    display: grid;
+    grid-template-columns: 240px 1fr 110px;
+    align-items: center;
+    gap: 16px;
+    font-size: 13.5px;
+  }
+  .frow .lab { font-family: var(--mono); font-size: 11.5px; color: var(--ink-soft); letter-spacing: 0.04em; }
+  .frow .bar {
+    height: 22px;
+    background: var(--paper-warm);
+    border: 1px solid var(--rule-soft);
+    position: relative;
+    overflow: hidden;
+  }
+  .frow .bar > span {
+    display: block;
+    height: 100%;
+    background: var(--navy);
+    background: repeating-linear-gradient(45deg,
+      var(--navy) 0px, var(--navy) 6px,
+      #1d3d68 6px, #1d3d68 12px);
+  }
+  .frow .num {
+    font-family: var(--mono);
+    font-size: 12px;
+    text-align: right;
+    color: var(--ink);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .frow.ghost .bar > span { background: repeating-linear-gradient(45deg,
+      var(--violet) 0px, var(--violet) 6px,
+      #5a3a82 6px, #5a3a82 12px); }
+  .frow.final .bar > span { background: repeating-linear-gradient(45deg,
+      var(--green) 0px, var(--green) 6px,
+      #2f6446 6px, #2f6446 12px); }
+
+  .funnel-foot {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--rule-soft);
+    font-family: var(--display);
+    font-style: italic;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+  }
+  .funnel-foot strong { color: var(--ink); font-weight: 600; }
+
+  /* ───── Headline template box ─────  */
+  .headline-box {
+    margin-top: 22px;
+    padding: 26px 30px;
+    background: var(--ink);
+    color: var(--paper);
+    position: relative;
+  }
+  .headline-box::before {
+    content: "TEMPLATED · DETERMINISTIC · NO LLM-AUTHORED NUMBERS";
+    position: absolute;
+    top: -10px;
+    left: 24px;
+    background: var(--paper);
+    color: var(--red);
+    border: 1.5px solid var(--red);
+    padding: 2px 10px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.16em;
+    font-weight: 600;
+  }
+  .headline-box .hd {
+    font-family: var(--display);
+    font-weight: 350;
+    font-style: italic;
+    font-size: clamp(18px, 2.2vw, 26px);
+    line-height: 1.4;
+    letter-spacing: -0.005em;
+  }
+  .headline-box .hd em {
+    font-style: normal;
+    background: rgba(184, 118, 26, 0.32);
+    padding: 0 4px;
+    border-radius: 1px;
+    color: #fff3d8;
+  }
+  .headline-box .ftn {
+    margin-top: 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--rule-soft);
+    letter-spacing: 0.06em;
+    line-height: 1.5;
+  }
+
+  /* ───── Footer ─────  */
+  footer.colophon {
+    margin-top: 80px;
+    padding-top: 18px;
+    border-top: 1.5px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  footer.colophon q {
+    quotes: "“" "”";
+    font-family: var(--display);
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 14px;
+    color: var(--ink);
+    font-weight: 350;
+  }
+
+  /* ───── Diagram notes (annotation block under the SVG) ───── */
+  .diagram-notes {
+    margin-top: 28px;
+  }
+  .diagram-notes-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 1.5px solid var(--rule);
+    padding-bottom: 10px;
+    gap: 24px;
+  }
+  .diagram-notes-head h3 {
+    font-family: var(--display);
+    font-weight: 450;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+  }
+  .diagram-notes-head .sub {
+    font-family: var(--display);
+    font-style: italic;
+    font-weight: 350;
+    font-size: 14px;
+    color: var(--ink-soft);
+    text-align: right;
+  }
+  .notes-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .note {
+    padding: 20px 0 22px;
+    border-bottom: 1px solid var(--rule-hair);
+  }
+  .note:nth-child(2n-1) {
+    padding-right: 28px;
+    border-right: 1px solid var(--rule-soft);
+  }
+  .note:nth-child(2n) {
+    padding-left: 28px;
+  }
+  .note:nth-last-child(-n+2) { border-bottom: none; }
+  .note .ord {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--red);
+    margin-bottom: 8px;
+    display: block;
+    font-weight: 500;
+  }
+  .note .nm {
+    font-family: var(--display);
+    font-weight: 450;
+    font-size: 18px;
+    letter-spacing: -0.005em;
+    margin-bottom: 8px;
+    line-height: 1.25;
+    color: var(--ink);
+  }
+  .note .bd {
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    max-width: 56ch;
+  }
+  .note .bd code {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--navy);
+    background: var(--paper-warm);
+    padding: 0 4px;
+  }
+  @media (max-width: 800px) {
+    .notes-grid { grid-template-columns: 1fr; }
+    .note { padding-left: 0 !important; padding-right: 0 !important; border-right: none !important; }
+    .note:nth-last-child(-n+2) { border-bottom: 1px solid var(--rule-hair); }
+    .note:last-child { border-bottom: none; }
+  }
+
+  /* ───── Print ─────  */
+  @media print {
+    body { background: white; background-image: none; }
+    .arch-frame, .ino-grid, .vcard { break-inside: avoid; }
+    .section { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ───────── DOC RULE ───────── -->
+  <div class="docrule">
+    <span>File №&nbsp;CHL-01 / Audit-Lead Architecture</span>
+    <span>AI for Accountability Hackathon · Ottawa · 29 Apr 2026</span>
+    <span class="stamp">Audit lead — not accusation</span>
+  </div>
+
+  <!-- ───────── HERO ───────── -->
+  <header class="hero">
+    <div>
+      <div class="eyebrow">Challenge № 1 · Zombie Recipients</div>
+      <h1 class="title">Did the public get<br>anything for its money,<br>or did it fund a<br><em>disappearing act?</em></h1>
+      <p class="deck">A self-running multi-agent investigator that fuses five Canadian government open-data sources behind a deterministic SQL gate, an adversarial paranoid verifier, and a registry-plus-audited-cash double-check — then publishes audit leads where every dollar, every percentage, every date traces back to a labelled SQL query that can be re-run live, on stage, from the database.</p>
+    </div>
+  </header>
+
+  <!-- ───────── STATLINE ───────── -->
+  <section class="statline" aria-label="Headline numbers">
+    <div class="stat"><div class="v">5<small>+1</small></div><div class="k">Gov data schemas</div></div>
+    <div class="stat"><div class="v">~23<small>M</small></div><div class="k">Authoritative rows</div></div>
+    <div class="stat"><div class="v">2</div><div class="k">Cooperating Claude agents</div></div>
+    <div class="stat"><div class="v">14</div><div class="k">Step precedence chain</div></div>
+    <div class="stat"><div class="v">$1<small>M</small></div><div class="k">Material-funding hard gate</div></div>
+  </section>
+
+  <!-- ───────── §1 ARCHITECTURE ───────── -->
+  <section class="section" id="architecture">
+    <div class="section-head">
+      <div class="section-num">01</div>
+      <h2 class="section-title">The architecture, <em>annotated</em>.</h2>
+    </div>
+    <p class="section-sub">Two cooperating Claude agents. Three custom MCP channels. Four lifecycle hooks. Three auto-loaded skills. One read-only database. Every arrow on this diagram has a reason.</p>
+
+    <div class="arch-frame" style="margin-top:22px;">
+      <div class="arch-toolbar">
+        <span>Fig. 01 · System architecture</span>
+        <span class="legend">
+          <span><i class="l-orch"></i>Orchestrator</span>
+          <span><i class="l-ver"></i>Verifier (adversarial)</span>
+          <span><i class="l-data"></i>Data plane</span>
+          <span><i class="l-ext"></i>External infra</span>
+        </span>
+        <span>read-only · deterministic · audited</span>
+      </div>
+
+      <!--
+        ──────────────────────────────────────────
+        ARCHITECTURE SVG · drawn at 1240 × 880
+        ──────────────────────────────────────────
+      -->
+      <svg class="arch" viewBox="0 0 1240 770" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="System architecture diagram">
+        <defs>
+          <!-- arrowheads -->
+          <marker id="ah-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#14100a"/>
+          </marker>
+          <marker id="ah-soft" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#4a3f2c"/>
+          </marker>
+          <marker id="ah-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#25533a"/>
+          </marker>
+          <marker id="ah-violet" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#4a2d6e"/>
+          </marker>
+
+          <!-- subtle hatch for database body -->
+          <pattern id="db-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="6" stroke="#25533a" stroke-width="1.2"/>
+          </pattern>
+
+          <!-- corner crops on big nodes -->
+        </defs>
+
+        <!-- ============ BROWSER ============ -->
+        <g id="browser">
+          <rect x="40" y="36" width="380" height="72" fill="#f6f1e3" stroke="#14100a" stroke-width="1.5"/>
+          <rect x="40" y="36" width="380" height="20" fill="#14100a"/>
+          <text x="52" y="51" class="mono label-light" font-size="10.5" letter-spacing="2">BROWSER  ·  /  /dashboard  /  /report</text>
+          <text x="52" y="84" class="title" font-size="22">3-panel UI · live SQL · streaming dossiers</text>
+          <text x="52" y="100" class="mono" font-size="10.5" fill="#4a3f2c">single websocket fan-out · reconnect-snapshot</text>
+        </g>
+
+        <!-- ============ FASTAPI ============ -->
+        <g id="fastapi">
+          <rect x="40" y="148" width="380" height="62" fill="#f6f1e3" stroke="#14100a" stroke-width="1.5"/>
+          <text x="52" y="172" class="title" font-size="18">FastAPI · Uvicorn :8080</text>
+          <text x="52" y="194" class="mono" font-size="11" fill="#4a3f2c">/api/run · /api/stop · /ws · /ws/live · /report</text>
+        </g>
+
+        <!-- arrow browser ↔ fastapi -->
+        <line x1="230" y1="108" x2="230" y2="148" class="flow-primary" marker-end="url(#ah-ink)"/>
+        <line x1="200" y1="148" x2="200" y2="108" class="flow-primary" marker-end="url(#ah-ink)"/>
+        <text x="246" y="132" class="mono" font-size="10" fill="#4a3f2c">websocket</text>
+
+        <!-- ============ ORCHESTRATOR (BIG) ============ -->
+        <g id="orch">
+          <!-- main body -->
+          <rect x="40" y="248" width="700" height="262" class="node-fill-orch stroke-rule" stroke-width="1.5"/>
+          <!-- header strip -->
+          <rect x="40" y="248" width="700" height="34" fill="#0e2240"/>
+          <text x="56" y="270" class="mono label-light" font-size="11" letter-spacing="2.6">ORCHESTRATOR  ·  CLAUDE OPUS 4.7  ·  MAX_TURNS 80</text>
+          <text x="724" y="270" class="mono label-light" font-size="10" letter-spacing="2" text-anchor="end">adaptive thinking · effort:high</text>
+
+          <text x="56" y="312" class="title label-light" font-size="22">decompose · query · narrow · resolve · verify · publish</text>
+
+          <!-- skills row -->
+          <text x="56" y="368" class="mono label-light" font-size="10" letter-spacing="2" opacity="0.7">3 AUTO-LOADED SKILLS</text>
+          <g font-family="IBM Plex Mono" font-size="11" fill="#f6f1e3">
+            <rect x="56"  y="378" width="200" height="28" fill="#1a3a64" stroke="#a4b2c8" stroke-width="0.5"/>
+            <text x="66"  y="396">accountability-investigator</text>
+            <rect x="262" y="378" width="120" height="28" fill="#1a3a64" stroke="#a4b2c8" stroke-width="0.5"/>
+            <text x="272" y="396">data-quirks</text>
+            <rect x="388" y="378" width="160" height="28" fill="#1a3a64" stroke="#a4b2c8" stroke-width="0.5"/>
+            <text x="398" y="396">zombie-detection</text>
+          </g>
+
+          <!-- hooks row -->
+          <text x="56" y="430" class="mono label-light" font-size="10" letter-spacing="2" opacity="0.85">4 LIFECYCLE HOOKS · BELT &amp; SUSPENDERS</text>
+          <g font-family="IBM Plex Mono" font-size="10.5" fill="#f6f1e3">
+            <rect x="56"  y="440" width="160" height="56" fill="#f6f1e3" stroke="#a82119" stroke-width="1.4"/>
+            <text x="66"  y="458" fill="#14100a" font-weight="500">PreToolUse</text>
+            <text x="66"  y="475" fill="#a82119">→ safe_sql_hook</text>
+            <text x="66"  y="490" fill="#4a3f2c">denies DROP/UPDATE/…</text>
+
+            <rect x="222" y="440" width="160" height="56" fill="#f6f1e3" stroke="#142e52" stroke-width="1"/>
+            <text x="232" y="458" fill="#14100a" font-weight="500">UserPromptSubmit</text>
+            <text x="232" y="475" fill="#142e52">→ inject_context</text>
+            <text x="232" y="490" fill="#4a3f2c">date · quirks reminders</text>
+
+            <rect x="388" y="440" width="160" height="56" fill="#f6f1e3" stroke="#142e52" stroke-width="1"/>
+            <text x="398" y="458" fill="#14100a" font-weight="500">SubagentStop</text>
+            <text x="398" y="475" fill="#142e52">→ announce</text>
+            <text x="398" y="490" fill="#4a3f2c">verifier ✓ breadcrumb</text>
+
+            <rect x="554" y="440" width="160" height="56" fill="#f6f1e3" stroke="#142e52" stroke-width="1" stroke-dasharray="3 2"/>
+            <text x="564" y="458" fill="#14100a" font-weight="500">tool_response*</text>
+            <text x="564" y="475" fill="#142e52">→ step_complete</text>
+            <text x="564" y="490" fill="#4a3f2c">*SDK bug, worked around</text>
+          </g>
+        </g>
+
+        <!-- arrow fastapi → orch -->
+        <line x1="230" y1="210" x2="230" y2="248" class="flow-primary" marker-end="url(#ah-ink)"/>
+        <text x="246" y="232" class="mono" font-size="10" fill="#4a3f2c">ClaudeSDKClient</text>
+
+        <!-- ============ Three tool channels (right of orchestrator) ============ -->
+        <g id="tools">
+          <!-- pg-mcp -->
+          <rect x="780" y="252" width="270" height="58" fill="#f6f1e3" stroke="#14100a" stroke-width="1.5"/>
+          <text x="794" y="274" class="title" font-size="15">postgres-mcp</text>
+          <text x="794" y="291" class="mono" font-size="10.5" fill="#4a3f2c">external · stdio · access-mode=restricted</text>
+          <text x="794" y="304" class="mono" font-size="10" fill="#a82119">SQL parser refuses destructive ops</text>
+
+          <!-- ui-bridge -->
+          <rect x="780" y="324" width="270" height="74" fill="#f6f1e3" stroke="#14100a" stroke-width="1.5"/>
+          <text x="794" y="346" class="title" font-size="15">ui_bridge MCP</text>
+          <text x="794" y="362" class="mono" font-size="10.5" fill="#4a3f2c">in-process · custom · 3 channels</text>
+          <text x="794" y="378" class="mono" font-size="10.5" fill="#142e52">publish_universe (1×)</text>
+          <text x="794" y="391" class="mono" font-size="10.5" fill="#142e52">publish_finding · publish_dossier</text>
+
+          <!-- task -->
+          <rect x="780" y="412" width="270" height="58" fill="#f6f1e3" stroke="#14100a" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <text x="794" y="434" class="title" font-size="15">Task tool</text>
+          <text x="794" y="451" class="mono" font-size="10.5" fill="#4a3f2c">spawns adversarial verifier subagent</text>
+          <text x="794" y="464" class="mono" font-size="10" fill="#4a2d6e">restricted tool set · cannot publish</text>
+        </g>
+
+        <!-- arrows orch → tools -->
+        <line x1="740" y1="282" x2="780" y2="282" class="flow-primary" marker-end="url(#ah-ink)"/>
+        <line x1="740" y1="362" x2="780" y2="362" class="flow-primary" marker-end="url(#ah-ink)"/>
+        <line x1="740" y1="441" x2="780" y2="441" class="flow-control" marker-end="url(#ah-violet)"/>
+
+        <!-- ============ POSTGRES (bottom right) ============ -->
+        <g id="postgres">
+          <!-- cylinder -->
+          <ellipse cx="940" cy="556" rx="110" ry="14" fill="#1c422f" stroke="#14100a" stroke-width="1.5"/>
+          <rect x="830" y="556" width="220" height="180" fill="url(#db-hatch)" stroke="#14100a" stroke-width="1.5"/>
+          <rect x="830" y="556" width="220" height="180" fill="#25533a" opacity="0.92"/>
+          <ellipse cx="940" cy="736" rx="110" ry="14" fill="#1c422f" stroke="#14100a" stroke-width="1.5"/>
+
+          <text x="940" y="588" class="title label-light" font-size="18" text-anchor="middle">POSTGRES</text>
+          <text x="940" y="606" class="mono label-light" font-size="10" letter-spacing="2.4" text-anchor="middle" opacity="0.85">READ-ONLY · ~23 M ROWS</text>
+
+          <g font-family="IBM Plex Mono" font-size="11.5" fill="#f6f1e3" text-anchor="middle">
+            <text x="940" y="634">cra · 8.76M  ·  T3010 charity filings</text>
+            <text x="940" y="652">fed · 1.275M  ·  Grants &amp; Contributions</text>
+            <text x="940" y="670">ab  · 2.61M   ·  Alberta + registry</text>
+            <text x="940" y="688">general · 10.5M · entity resolution</text>
+            <text x="940" y="706">corp · federal corp registry</text>
+            <text x="940" y="724">pa   · audited Public Accounts</text>
+          </g>
+        </g>
+
+        <!-- arrow pg-mcp → postgres -->
+        <path d="M 915 310 Q 915 400, 870 540" class="flow-data" marker-end="url(#ah-green)"/>
+        <text x="894" y="498" class="mono" font-size="10" fill="#25533a">restricted SQL</text>
+
+        <!-- arrow ui-bridge → browser (long curve back to top) -->
+        <path d="M 1050 360 Q 1180 360, 1180 110 Q 1180 76, 422 76" class="flow-secondary" marker-end="url(#ah-soft)"/>
+        <text x="1100" y="120" class="mono" font-size="10" fill="#4a3f2c">ws events ↩</text>
+
+        <!-- ============ VERIFIER (bottom left) ============ -->
+        <g id="verifier">
+          <!-- pulsing dotted ring -->
+          <rect x="32" y="556" width="710" height="180" class="ver-ring"/>
+          <!-- main body -->
+          <rect x="40" y="564" width="700" height="164" class="node-fill-ver stroke-rule" stroke-width="1.5"/>
+          <rect x="40" y="564" width="700" height="34" fill="#341c52"/>
+          <text x="56" y="586" class="mono label-light" font-size="11" letter-spacing="2.6">VERIFIER SUBAGENT  ·  CLAUDE OPUS  ·  PARANOID AUDITOR</text>
+          <text x="724" y="586" class="mono label-light" font-size="10" letter-spacing="2" text-anchor="end">tools: SQL only</text>
+
+          <text x="56" y="624" class="title label-light" font-size="20">Independent verification subagent · adversarial</text>
+
+          <text x="56" y="654" class="mono label-light" font-size="11" opacity="0.85">14-step deterministic precedence chain · first match wins</text>
+          <text x="56" y="672" class="mono label-light" font-size="11" opacity="0.85">cannot publish · cannot list schemas · cannot promote REFUTED</text>
+
+          <g font-family="IBM Plex Mono" font-size="10" fill="#f6f1e3">
+            <rect x="56"  y="688" width="124" height="26" fill="#5e3d83" stroke="#e3c481" stroke-width="0.6"/>
+            <text x="66"  y="705">CHECK 0 · designation A/B</text>
+            <rect x="186" y="688" width="124" height="26" fill="#5e3d83" stroke="#e3c481" stroke-width="0.6"/>
+            <text x="196" y="705">CHECK 9 · CORP active</text>
+            <rect x="316" y="688" width="124" height="26" fill="#5e3d83" stroke="#e3c481" stroke-width="0.6"/>
+            <text x="326" y="705">CHECK 1 · filing window</text>
+            <rect x="446" y="688" width="124" height="26" fill="#5e3d83" stroke="#e3c481" stroke-width="0.6"/>
+            <text x="456" y="705">CHECK 11 · dissolved</text>
+            <rect x="576" y="688" width="148" height="26" fill="#5e3d83" stroke="#e3c481" stroke-width="0.6"/>
+            <text x="586" y="705">CHECK 8 · field_1570 self-diss.</text>
+          </g>
+        </g>
+
+        <!-- arrow Task → Verifier (control) -->
+        <path d="M 915 470 Q 915 530, 480 564" class="flow-control" marker-end="url(#ah-violet)"/>
+        <text x="700" y="528" class="mono" font-size="10" fill="#4a2d6e">Task spawn</text>
+
+        <!-- arrow Verifier → Postgres (sql only) -->
+        <path d="M 740 660 Q 800 660, 830 656" class="flow-data" marker-end="url(#ah-green)"/>
+        <text x="754" y="650" class="mono" font-size="10" fill="#25533a">SQL only</text>
+
+      </svg>
+    </div>
+
+    <div class="diagram-notes">
+      <div class="diagram-notes-head">
+        <h3>Notable design decisions</h3>
+        <span class="sub">Six properties of the architecture above that matter once it starts running.</span>
+      </div>
+      <div class="notes-grid">
+
+        <div class="note">
+          <span class="ord">№ 01</span>
+          <div class="nm">Two cooperating agents, walled off</div>
+          <div class="bd">The orchestrator publishes findings, runs the workflow, and narrates each step. The verifier subagent can only run SQL — it cannot publish, cannot list schemas, and cannot promote a refutation it has issued. Different prompt, different tools, same SDK.</div>
+        </div>
+
+        <div class="note">
+          <span class="ord">№ 02</span>
+          <div class="nm">Skills as auto-loaded markdown</div>
+          <div class="bd">Three <code>SKILL.md</code> files load on description match when a question matches their domain. Methodology, data quirks, and naming conventions live in the repo as markdown — versioned in git, never pasted into a system prompt that goes stale.</div>
+        </div>
+
+        <div class="note">
+          <span class="ord">№ 03</span>
+          <div class="nm">Belt-and-suspenders SQL safety</div>
+          <div class="bd">The DB role is read-only. The postgres-mcp server runs in restricted mode and refuses destructive SQL at the parser. A <code>PreToolUse</code> hook regex-denies <code>DROP / UPDATE / DELETE / ALTER</code> before the parser ever sees the query. Three independent layers.</div>
+        </div>
+
+        <div class="note">
+          <span class="ord">№ 04</span>
+          <div class="nm">Glass-walled execution</div>
+          <div class="bd">Every SQL query, skill load, subagent step, and tool call streams over a single websocket to the UI. The agent narrates each step itself between tool calls — there is no dark phase of execution, and the reasoning is observable rather than reconstructed after the fact.</div>
+        </div>
+
+        <div class="note">
+          <span class="ord">№ 05</span>
+          <div class="nm">Deterministic enumeration</div>
+          <div class="bd">The candidate-enumeration query runs verbatim every run, ordered by a fixed sort key. Same DB state produces the same candidate list and the same ordering — what is shown on stage is reproducible from the database alone, not from the model.</div>
+        </div>
+
+        <div class="note">
+          <span class="ord">№ 06</span>
+          <div class="nm">Custom in-process MCP for the UI</div>
+          <div class="bd">Three publish channels — <code>universe</code>, <code>finding</code>, <code>dossier</code> — emit structured events the UI consumes. The agent doesn't write HTML or markdown for the dashboard; it publishes typed data and the UI does the rendering. Audit, replay, and snapshot become trivial.</div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────── §2 14-STEP CHAIN ───────── -->
+  <section class="section" id="precedence">
+    <div class="section-head">
+      <div class="section-num">02</div>
+      <h2 class="section-title">The 14-step <em>precedence chain.</em></h2>
+    </div>
+    <p class="section-sub">The verifier doesn't &ldquo;think&rdquo; through each candidate freely. It runs a strict ordered chain — first match wins, stop checking. Verdict drift, eliminated.</p>
+
+    <div class="chain">
+      <div class="step headstep">
+        <span class="ord">№</span>
+        <span class="id">CHECK</span>
+        <span class="desc">Trigger condition</span>
+        <span class="verdict">Outcome</span>
+      </div>
+
+      <div class="step"><span class="ord">01</span><span class="id">CHECK 5</span><span class="desc">Sub-$1M BN-anchored <code style="font-family:var(--mono);font-size:12px">vw_agreement_current</code> total</span><span class="verdict refuted">Refuted</span></div>
+      <div class="step"><span class="ord">02</span><span class="id">CHECK 0</span><span class="desc">CRA designation = A (public foundation) or B (private foundation)</span><span class="verdict refuted">Refuted</span></div>
+      <div class="step"><span class="ord">03</span><span class="id">CHECK 9</span><span class="desc">CORP status 1 (Active) AND last annual return ≥ grant_end − 1</span><span class="verdict refuted">Refuted</span></div>
+      <div class="step"><span class="ord">04</span><span class="id">CHECK 9b</span><span class="desc">CORP status 9 (Inactive – Amalgamated; chase the successor)</span><span class="verdict refuted">Refuted</span></div>
+      <div class="step"><span class="ord">05</span><span class="id">CHECK 1</span><span class="desc">T3010 filing window still open (FPE + 6mo &gt; scrape date)</span><span class="verdict refuted">Refuted</span></div>
+      <div class="step"><span class="ord">06</span><span class="id">CHECK 7</span><span class="desc">Entity rebranded — recent name change in identification history</span><span class="verdict refuted">Refuted</span></div>
+      <div class="step"><span class="ord">07</span><span class="id">CHECK 2b</span><span class="desc">FED <code style="font-family:var(--mono);font-size:12px">agreement_end_date</code> ≥ 2024-01-01 AND end ≥ start (live)</span><span class="verdict refuted">Refuted</span></div>
+      <div class="step"><span class="ord">08</span><span class="id">CHECK 3</span><span class="desc">Any AB grant amount &gt; 0 in FY 2024-25 / 2025-26</span><span class="verdict refuted">Refuted</span></div>
+      <div class="step"><span class="ord">09</span><span class="id">CHECK 10</span><span class="desc">PA <code style="font-family:var(--mono);font-size:12px">recipient_totals.last_year</code> ≥ current_year − 1 AND total_paid &gt; 0</span><span class="verdict refuted">Refuted</span></div>
+      <div class="step"><span class="ord">10</span><span class="id">CHECK 11</span><span class="desc">CORP status 11 (Dissolved) or 3 (Pending) AND temporal gate satisfied</span><span class="verdict verified">Verified</span></div>
+      <div class="step"><span class="ord">11</span><span class="id">CHECK 8</span><span class="desc"><code style="font-family:var(--mono);font-size:12px">field_1570 = TRUE</code> — T3010 self-reported dissolution (line A2)</span><span class="verdict verified">Verified</span></div>
+      <div class="step"><span class="ord">12</span><span class="id">CHECK 12</span><span class="desc">PA empty across all FYs AND agreement ≥ $100K AND start ≤ today − 12mo</span><span class="verdict verified">Verified</span></div>
+      <div class="step"><span class="ord">13</span><span class="id">CHECK 6</span><span class="desc"><code style="font-family:var(--mono);font-size:12px">govt_share_of_rev &lt; 70</code> on most-recent clean filing</span><span class="verdict ambiguous">Ambiguous</span></div>
+      <div class="step"><span class="ord">14</span><span class="id">default</span><span class="desc">Death signal fired AND nothing above triggered</span><span class="verdict verified">Verified</span></div>
+    </div>
+    <div class="chain-foot">CHECK 11 = strongest VERIFIED · CHECK 8 = decisive first-party evidence · CHECK 12 = cash never moved</div>
+  </section>
+
+  <!-- ───────── §3 VERIFICATION FLOW ───────── -->
+  <section class="section" id="verification">
+    <div class="section-head">
+      <div class="section-num">03</div>
+      <h2 class="section-title">The verification lifecycle.</h2>
+    </div>
+    <p class="section-sub">Every candidate is published as <span style="font-family:var(--mono);font-size:12px">pending</span>, then rebadged in place as the verifier returns. The <span style="font-family:var(--mono);font-size:12px">challenged → verified</span> transition shows the iterative-exploration loop closing: an AMBIGUOUS verdict triggers up to three follow-up SQL queries before the orchestrator either concedes or finds supporting evidence.</p>
+
+    <div class="vflow">
+      <div class="vcard pending">
+        <span class="pill">Pending</span>
+        <div class="vlabel">Initial publish — Step F</div>
+        <div class="vbody">"Recipient surfaced by Step A. Death signal fired. Awaiting independent verification."</div>
+        <div class="vmeta"><b>SQL trail:</b> step_a_enumeration<br><b>Total:</b> $11.7M (BN-anchored)<br><b>Death:</b> t3010_self_dissolution</div>
+      </div>
+
+      <div class="vcard challenged">
+        <span class="pill">Challenged</span>
+        <div class="vlabel">Verifier returned AMBIGUOUS</div>
+        <div class="vbody">"2024 T3010 exists — but all programs are <code style="font-family:var(--mono);font-size:12px">'NA'</code>. Investigating: hollow filing or genuine recovery?"</div>
+        <div class="vmeta"><b>Iterative loop:</b> ≤3 follow-up SQLs<br><b>Probe:</b> programs-all-inactive<br><b>Animation:</b> @keyframes pulse</div>
+      </div>
+
+      <div class="vcard verified">
+        <span class="pill">✓ Verified</span>
+        <div class="vlabel">All programs inactive · CHECK 8 holds</div>
+        <div class="vbody">"Hollow shell confirmed. Self-dissolution remains the dominant signal. Lead promoted to dossier."</div>
+        <div class="vmeta"><b>publish_dossier</b> fires<br><b>Headline:</b> templated · deterministic<br><b>Sparklines:</b> govt-share, overhead, PA</div>
+      </div>
+
+      <div class="vcard refuted">
+        <span class="pill">⊘ Refuted</span>
+        <div class="vlabel">CHECK 2b — live federal agreement</div>
+        <div class="vbody">"Agreement runs to 2025-03-31. Not a zombie. But entity self-dissolved → Ghost Capacity sidebar."</div>
+        <div class="vmeta"><b>Hand-off:</b> Challenge № 2<br><b>REFUTED is final.</b><br><b>No anomaly is wasted.</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────── §4 INNOVATIONS ───────── -->
+  <section class="section" id="innovations">
+    <div class="section-head">
+      <div class="section-num">04</div>
+      <h2 class="section-title">Methodology decisions.</h2>
+    </div>
+    <p class="section-sub">Choices baked into the queries, the verifier chain, and the framing of the output. Each one is a working file in the repo.</p>
+
+    <div class="ino-grid">
+      <div class="ino"><span class="num">01</span><div class="name">Universe panel</div><div class="desc">Five gate-drop counts published once per run alongside the candidate list. The audience can audit how many recipients each filter dropped — not just see the survivors.</div></div>
+
+      <div class="ino"><span class="num">02</span><div class="name">CORP federal corporate registry corroboration</div><div class="desc">Federal corporate registry status (active / amalgamated / dissolved) used as an independent kill-switch. A temporal gate against BN-reuse prevents flagging a successor entity as the original.</div></div>
+
+      <div class="ino"><span class="num">03</span><div class="name">PA audited Public Accounts</div><div class="desc">Public Accounts answers "did the cash actually move?" Bilingual <code>|</code> split for Quebec recipients, <code>recipient_name_norm</code> join key. Independent of the grant database.</div></div>
+
+      <div class="ino"><span class="num">04</span><div class="name">Iterative-exploration loop</div><div class="desc">On AMBIGUOUS, the orchestrator gets a 3-query budget to defend, revise, or concede. The card transitions <code>pending → challenged → verified</code> (or refuted) so the reasoning is visible.</div></div>
+
+      <div class="ino"><span class="num">05</span><div class="name">Ghost Capacity hand-off</div><div class="desc">A refuted-as-zombie + self-dissolved + live-agreement combination is surfaced as a Challenge №2 lead instead of being discarded. Related anomalies are caught as a byproduct.</div></div>
+
+      <div class="ino"><span class="num">06</span><div class="name">T3010 filing-window math</div><div class="desc">CRA gives charities six months after fiscal year end to file. The query computes <code>fpe + 6mo ≤ scrape_date</code> before treating silence as evidence of dissolution.</div></div>
+
+      <div class="ino"><span class="num">07</span><div class="name">F-3 cumulative-amendment immunity</div><div class="desc">Naïve <code>SUM(agreement_value)</code> over the federal grants table triple-counts cumulative amendments (~$921B reported vs ~$816B actual). Every query reads through <code>fed.vw_agreement_current</code> instead.</div></div>
+
+      <div class="ino"><span class="num">08</span><div class="name">BN root vs 15-char BN normalization</div><div class="desc"><code>LEFT(bn, 9)</code> everywhere with a <code>^[1-9][0-9]{8}$</code> guard regex. Drops placeholder values (<code>-</code>, all-zeros, <code>100000000</code>) that would otherwise group unrelated entities.</div></div>
+
+      <div class="ino"><span class="num">09</span><div class="name">Audit-leads framing</div><div class="desc">Every output passes a legal-disclosure smell test. Language scrubbed of "fraud / stole / criminal / misappropriated" — the briefing names a finding without naming a crime.</div></div>
+    </div>
+  </section>
+
+  <!-- ───────── §5 FUNNEL + HEADLINE ───────── -->
+  <section class="section" id="determinism">
+    <div class="section-head">
+      <div class="section-num">05</div>
+      <h2 class="section-title">Explainability of the <em>methodology itself.</em></h2>
+    </div>
+    <p class="section-sub">Published once per run as a single <code style="font-family:var(--mono);font-size:12px">publish_universe</code> call, the funnel exposes how many recipients each gate dropped — not only the survivors.</p>
+
+    <div class="funnel-wrap">
+      <div class="funnel-head">
+        <div class="t">Methodology funnel · 2018–2022 commitment window</div>
+        <div class="s">Gate-by-gate drop counts (illustrative)</div>
+      </div>
+      <div class="funnel-rows">
+        <div class="frow"><span class="lab">n_universe_pre_gate</span><div class="bar"><span style="width:100%"></span></div><span class="num">~ 200,000+</span></div>
+        <div class="frow"><span class="lab">+ $1M material-funding gate</span><div class="bar"><span style="width:60%"></span></div><span class="num">few thousand</span></div>
+        <div class="frow"><span class="lab">+ foundation A / B exclusion</span><div class="bar"><span style="width:46%"></span></div><span class="num">↓</span></div>
+        <div class="frow"><span class="lab">+ no live federal agreement post-2024</span><div class="bar"><span style="width:32%"></span></div><span class="num">↓</span></div>
+        <div class="frow"><span class="lab">+ non-charity name regex (police, gov't, school)</span><div class="bar"><span style="width:24%"></span></div><span class="num">↓</span></div>
+        <div class="frow ghost"><span class="lab">→ Ghost Capacity sidebar (Challenge №2)</span><div class="bar"><span style="width:8%"></span></div><span class="num">free byproduct</span></div>
+        <div class="frow final"><span class="lab">n_final_candidates · VERIFIED</span><div class="bar"><span style="width:14%"></span></div><span class="num">tractable</span></div>
+      </div>
+      <div class="funnel-foot">If Step A returns &lt; 5 candidates after every gate, <strong>that is the correct answer</strong>. The system prompt forbids relaxing gates to reach 5. <em>Depth over breadth.</em></div>
+    </div>
+
+    <div class="headline-box">
+      <div class="hd">"<em>$11.7M</em> in federal commitments <em>2018–2022</em> to a recipient that self-dissolved on <em>2023-03-31</em> (T3010 line A2: charity wound up, dissolved, or terminated operations); on its most recent clean filing, government funding was <em>87.4 %</em> of total revenue."</div>
+      <div class="ftn">— Templated format string filled from already-queried values. Every dollar, every percentage, every date traces back to a labelled SQL query in the same session. The LLM never authors a number.</div>
+    </div>
+  </section>
+
+  <!-- ───────── COLOPHON ───────── -->
+  <footer class="colophon">
+    <span>5 schemas · 23M rows · 2 agents · 14-step chain · 1 source of truth</span>
+    <q>The methodology produces investigative leads worth an auditor's time — not legal conclusions.</q>
+    <span>src / system_prompt.py · L 14</span>
+  </footer>
+
+</div>
+</body>
+</html>
