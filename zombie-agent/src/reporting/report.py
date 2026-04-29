@@ -94,8 +94,22 @@ def _table(headers: list[str], rows: list[list[Any]]) -> str:
     )
 
 
+def _clean_trail_item(step: Any) -> str:
+    """Normalise a sql_trail entry to a display string.
+
+    The agent labels queries with a leading SQL comment (-- Step N: ...).
+    Strip that prefix so the report shows clean text.
+    """
+    s = str(step).strip() if not isinstance(step, str) else step.strip()
+    # Strip leading SQL comment markers: "-- Step 1:", "-- Step A1:", etc.
+    if s.startswith("--"):
+        s = s[2:].strip()
+    return s
+
+
 def _reasoning_chain(sql_trail: Any) -> str:
-    items = sql_trail if isinstance(sql_trail, list) else []
+    raw = sql_trail if isinstance(sql_trail, list) else []
+    items = [_clean_trail_item(s) for s in raw if s]
     if not items:
         return ""
     lis = "".join(
@@ -392,6 +406,60 @@ def _summary_bar(findings: dict) -> str:
     )
 
 
+def _executive_brief(findings: dict, universe: dict) -> str:
+    """One-paragraph plain-language summary derived entirely from findings data."""
+    all_f = list(findings.values())
+    if not all_f:
+        return ""
+
+    counts: dict[str, int] = {"verified": 0, "challenged": 0, "pending": 0, "refuted": 0}
+    verified_funding = 0.0
+    total_funding = 0.0
+    for f in all_f:
+        st = f.get("verifier_status", "pending")
+        counts[st] = counts.get(st, 0) + 1
+        amt = float(f.get("total_funding_cad") or 0)
+        total_funding += amt
+        if st == "verified":
+            verified_funding += amt
+
+    n_total = len(all_f)
+    n_verified = counts["verified"]
+    n_refuted = counts["refuted"]
+    n_final = universe.get("n_final_candidates") if universe else None
+
+    verified_line = (
+        f"<strong>{n_verified} {"lead was" if n_verified == 1 else "leads were"} independently "
+        f"verified</strong>, representing a combined {_fmt_cad(verified_funding)} in committed "
+        f"federal funding to organizations that no longer appear active on the public record."
+        if n_verified > 0
+        else "No leads have been independently verified yet."
+    )
+
+    refuted_line = (
+        f" {n_refuted} {"candidate was" if n_refuted == 1 else "candidates were"} correctly "
+        f"excluded by the methodology (public/private foundations, live agreements, or open "
+        f"T3010 filing windows) — these exclusions are the methodology working as intended, "
+        f"not failures."
+        if n_refuted > 0
+        else ""
+    )
+
+    funnel_line = (
+        f" The search space covered {n_final} final candidate{"s" if (n_final or 0) != 1 else ""} "
+        f"after passing all hard gates."
+        if n_final is not None
+        else ""
+    )
+
+    return (
+        '<div style="background:#FFFFFF;border:1px solid #E5E7EB;border-radius:10px;'
+        'padding:20px;margin-bottom:16px;font-size:14px;color:#374151;line-height:1.7;">'
+        f"{verified_line}{refuted_line}{funnel_line}"
+        "</div>"
+    )
+
+
 def _methodology_box() -> str:
     return (
         '<div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;'
@@ -588,18 +656,6 @@ body {{
   flex-shrink: 0;
 }}
 
-/* Question box */
-.question-box {{
-  border-left: 3px solid #1D6AE5; background: #EFF6FF;
-  padding: 12px 18px; border-radius: 0 8px 8px 0;
-  font-size: 14px; color: #1E40AF; line-height: 1.6;
-  margin-bottom: 24px;
-}}
-.question-label {{
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .08em; color: #93C5FD; margin-bottom: 4px;
-}}
-
 /* Footer */
 .report-footer {{
   margin-top: 40px; padding-top: 16px; border-top: 1px solid #E5E7EB;
@@ -609,7 +665,7 @@ body {{
 @media print {{
   body {{ background: #fff; }}
   .page {{ padding: 0; }}
-  .report-header, .question-box {{ page-break-inside: avoid; }}
+  .report-header {{ page-break-inside: avoid; }}
   div[style*="page-break-inside:avoid"] {{ page-break-inside: avoid; }}
 }}
 </style>
@@ -627,12 +683,10 @@ body {{
     <div class="status-badge">{_e(badge_text)}</div>
   </div>
 
-  <!-- Investigation question -->
-  {('<div class="question-box"><div class="question-label">Investigation Question</div>' + _e(state.question) + '</div>') if state.question else ''}
-
   <!-- Executive Overview -->
   {_section_header("Executive Overview")}
   {_summary_bar(state.findings)}
+  {_executive_brief(state.findings, state.universe)}
   {_section_header("Methodology Funnel")}
   {_funnel_section(state.universe)}
 

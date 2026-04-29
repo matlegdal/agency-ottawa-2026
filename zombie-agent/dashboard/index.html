@@ -325,6 +325,84 @@
       font-size: 10px; color: var(--muted2); margin-right: 6px;
       font-variant-numeric: tabular-nums; font-weight: 400;
     }
+    /* ── Universe funnel panel ───────────────────────────── */
+    .universe-panel {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 10px; padding: 14px 16px; margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .uv-title {
+      font-size: 10px; text-transform: uppercase; letter-spacing: .09em;
+      color: var(--muted2); font-weight: 600; margin-bottom: 10px;
+    }
+    .uv-counts { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-bottom: 6px; }
+    .uv-counts .v { font-weight: 700; font-size: 15px; color: var(--fg); margin-right: 3px; }
+    .uv-counts .l { font-size: 11px; color: var(--muted); }
+    .uv-counts > div { white-space: nowrap; }
+    .uv-narrative {
+      font-size: 12px; color: var(--muted); line-height: 1.5;
+      border-top: 1px solid var(--line2); padding-top: 8px; margin-top: 4px;
+    }
+
+    /* ── Card dossier sections ──────────────────────────── */
+    .card-headline {
+      font-size: 13px; font-weight: 600; color: var(--fg);
+      margin: 8px 0 2px; line-height: 1.35;
+    }
+    .card-dossier { margin-top: 10px; border-top: 1px solid var(--line2); padding-top: 10px; }
+    .dossier-section { margin-bottom: 10px; }
+    .dossier-section:last-child { margin-bottom: 0; }
+    .ds-title {
+      font-size: 10px; text-transform: uppercase; letter-spacing: .07em;
+      color: var(--muted2); font-weight: 600; margin-bottom: 5px;
+    }
+    .death-banner {
+      font-size: 12px; font-weight: 600; color: var(--bad);
+      background: #FEE2E2; border: 1px solid #FECACA;
+      border-radius: 4px; padding: 6px 10px; line-height: 1.4;
+    }
+    .fe-row {
+      display: flex; align-items: baseline; gap: 6px;
+      font-size: 11px; padding: 3px 0; border-bottom: 1px solid var(--line2);
+    }
+    .fe-row:last-child { border-bottom: none; }
+    .fe-year { flex-shrink: 0; color: var(--muted); width: 34px; font-weight: 600; }
+    .fe-desc { flex: 1; color: var(--fg); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fe-dept { color: var(--muted); margin-left: 5px; font-size: 10px; }
+    .fe-amt { flex-shrink: 0; font-weight: 600; color: var(--accent); }
+    .sparkline { width: 100%; height: 56px; display: block; }
+    .spark-line { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+    .spark-dot { fill: var(--accent); }
+    .spark-threshold { stroke: var(--bad); stroke-width: 1; stroke-dasharray: 3 3; }
+    .spark-label { fill: var(--bad); font-size: 9px; }
+    .dependence-empty { font-size: 11px; color: var(--muted2); font-style: italic; }
+    .overhead-line { font-size: 12px; color: var(--fg); line-height: 1.4; }
+    .o-pct { font-weight: 700; color: var(--warn); }
+
+    .feed-item { cursor: pointer; }
+    .feed-item.expanded { background: var(--panel2); }
+    .feed-detail {
+      display: none; margin-top: 6px; padding: 8px 10px;
+      background: var(--bg); border: 1px solid var(--line);
+      border-radius: 4px; font-size: 11px;
+    }
+    .feed-item.expanded .feed-detail { display: block; }
+    .fd-row { display: flex; gap: 8px; margin-bottom: 5px; align-items: flex-start; }
+    .fd-key {
+      flex-shrink: 0; width: 88px; padding-top: 1px;
+      color: var(--muted); font-weight: 600; font-size: 10px;
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+    .fd-val { color: var(--fg); flex: 1; word-break: break-word; line-height: 1.4; }
+    .fd-row-code { flex-direction: column; }
+    .fd-row-code .fd-key { width: auto; margin-bottom: 3px; }
+    .fd-code {
+      margin: 0; padding: 6px 8px; background: #F1F5F9; border-radius: 3px;
+      font-family: 'Menlo','Monaco','Consolas',monospace; font-size: 10px;
+      line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+      color: #1E40AF; max-height: 180px; overflow-y: auto;
+    }
+    .fd-empty { color: var(--muted2); font-style: italic; }
 
     /* ── Empty / placeholder states ─────────────────────────── */
     .empty {
@@ -720,10 +798,12 @@
 <script>
 // ── State ──────────────────────────────────────────────────────────
 const findings = {};   // bn → { data, cardEl }
+const dossiers = {};   // bn → dossier payload
 const steps    = {};   // id → feedItemEl
 let runStart   = null;
 let timerRaf   = null;
-let activeFilter = 'all';
+let activeFilter  = 'all';
+let universePanel = null;
 
 // ── KPI elements ───────────────────────────────────────────────────
 const kpiEls = {
@@ -878,6 +958,7 @@ function skelCards() {
 
 // ── Cards ──────────────────────────────────────────────────────────
 function upsertCard(m) {
+  const dos = dossiers[m.bn] || null;
   const existing = findings[m.bn];
   if (!existing) {
     grid.querySelectorAll('.skel-ph').forEach(e => e.remove());
@@ -886,19 +967,115 @@ function upsertCard(m) {
     if (activeFilter !== 'all' && m.verifier_status !== activeFilter) el.style.display = 'none';
     grid.prepend(el);
     findings[m.bn] = { data: m, cardEl: el };
-    try { renderCard(el, m); } catch(e) { console.error('renderCard:', e); }
+    try { renderCard(el, m, dos); } catch(e) { console.error('renderCard:', e); }
   } else {
     existing.data = m;
     existing.cardEl.className = `card ${m.verifier_status}`;
     existing.cardEl.style.display = (activeFilter === 'all' || m.verifier_status === activeFilter) ? '' : 'none';
-    try { renderCard(existing.cardEl, m); } catch(e) { console.error('renderCard:', e); }
+    try { renderCard(existing.cardEl, m, dos); } catch(e) { console.error('renderCard:', e); }
   }
   updateKPIs();
   if (!document.getElementById('table-view').hidden) syncTable();
   document.getElementById('report-btn')?.classList.add('ready');
 }
 
-function renderCard(el, m) {
+function renderSparkline(rows) {
+  const W = 280, H = 56, pad = 4;
+  const xs = rows.map(r => Number(r.fiscal_year));
+  const ys = rows.map(r => Number(r.govt_share_pct) || 0);
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  const yMax = Math.max(100, ...ys);
+  const sx = v => xMax === xMin ? W/2 : pad + (v - xMin) / (xMax - xMin) * (W - 2*pad);
+  const sy = v => H - pad - (v / yMax) * (H - 2*pad);
+  const pts  = rows.map(r => `${sx(r.fiscal_year).toFixed(1)},${sy(Number(r.govt_share_pct)||0).toFixed(1)}`).join(' ');
+  const dots = rows.map(r => `<circle class="spark-dot" cx="${sx(r.fiscal_year)}" cy="${sy(Number(r.govt_share_pct)||0)}" r="2.5"/>`).join('');
+  const thY  = sy(70);
+  const last = rows[rows.length - 1];
+  return `<svg class="sparkline" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <line class="spark-threshold" x1="${pad}" y1="${thY}" x2="${W-pad}" y2="${thY}"/>
+      <text class="spark-label" x="${W-pad-2}" y="${thY-3}" text-anchor="end">70%</text>
+      <polyline class="spark-line" points="${pts}"/>${dots}
+    </svg>
+    <div style="font-size:10px;color:var(--muted);margin-top:2px;">${rows.length} fiscal yr(s); most recent FY ${last?.fiscal_year||'—'}: ${Number(last?.govt_share_pct||0).toFixed(1)}%.</div>`;
+}
+
+function renderDossier(d) {
+  const sections = [];
+  if (d.death_event_text) {
+    sections.push(`<div class="dossier-section">
+      <div class="ds-title">Status event</div>
+      <div class="death-banner">${esc(d.death_event_text)}</div>
+    </div>`);
+  }
+  const events = Array.isArray(d.funding_events) ? d.funding_events : [];
+  if (events.length) {
+    const cap = 8;
+    const rows = events.slice(0, cap).map(ev => {
+      const yr  = ev.year ?? (ev.start_date ? new Date(ev.start_date).getFullYear() : '—');
+      const amt = ev.amount_cad != null ? `$${Number(ev.amount_cad).toLocaleString(undefined,{maximumFractionDigits:0})}` : '—';
+      return `<div class="fe-row">
+        <span class="fe-year">${yr}</span>
+        <span class="fe-desc">${esc(ev.program||'(no program name)')}<span class="fe-dept">${esc(ev.dept||'')}</span></span>
+        <span class="fe-amt">${amt}</span>
+      </div>`;
+    }).join('');
+    const more = events.length > cap ? `<div class="fe-row" style="color:var(--muted2);font-style:italic">+${events.length-cap} more events</div>` : '';
+    sections.push(`<div class="dossier-section">
+      <div class="ds-title">Funding events (${events.length})</div>
+      ${rows}${more}
+    </div>`);
+  }
+  const dep = Array.isArray(d.dependence_history) ? d.dependence_history : [];
+  if (dep.length) {
+    sections.push(`<div class="dossier-section">
+      <div class="ds-title">Govt-share of revenue</div>
+      ${renderSparkline(dep)}
+    </div>`);
+  }
+  const oh = d.overhead_snapshot || {};
+  if (oh.fiscal_year != null) {
+    const pct  = oh.strict_overhead_pct != null ? Number(oh.strict_overhead_pct).toFixed(1) : '—';
+    const prog = oh.programs_cad != null ? `$${Number(oh.programs_cad).toLocaleString(undefined,{maximumFractionDigits:0})}` : '—';
+    const ovh  = oh.admin_fundraising_cad != null ? `$${Number(oh.admin_fundraising_cad).toLocaleString(undefined,{maximumFractionDigits:0})}` : '—';
+    sections.push(`<div class="dossier-section">
+      <div class="ds-title">Overhead — FY ${oh.fiscal_year}</div>
+      <div class="overhead-line">Admin + fundraising: <span class="o-pct">${pct}%</span> of revenue (${ovh} overhead vs ${prog} programs).</div>
+    </div>`);
+  }
+  return sections.join('');
+}
+
+function renderUniverse(m) {
+  if (!universePanel) {
+    universePanel = document.createElement('div');
+    universePanel.className = 'universe-panel';
+    grid.querySelector('.cards-splash')?.remove();
+    grid.querySelectorAll('.skel-ph').forEach(e => e.remove());
+    grid.prepend(universePanel);
+  }
+  const fmt = n => n == null ? '—' : Number(n).toLocaleString();
+  universePanel.innerHTML = `
+    <div class="uv-title">Search space &amp; methodology gates</div>
+    <div class="uv-counts">
+      <div><span class="v">${fmt(m.n_universe_pre_gate)}</span><span class="l">recipients ≥ $1M</span></div>
+      <div><span class="v">${fmt(m.n_after_foundation_filter)}</span><span class="l">after foundation gate</span></div>
+      <div><span class="v">${fmt(m.n_after_live_agreement_filter)}</span><span class="l">after live-agreement gate</span></div>
+      <div><span class="v">${fmt(m.n_after_non_charity_filter)}</span><span class="l">after non-charity gate</span></div>
+      <div><span class="v">${fmt(m.n_final_candidates)}</span><span class="l">final candidates</span></div>
+    </div>
+    ${m.narrative ? `<div class="uv-narrative">${esc(m.narrative)}</div>` : ''}
+  `;
+}
+
+function attachDossier(m) {
+  dossiers[m.bn] = m;
+  const entry = findings[m.bn];
+  if (entry) {
+    try { renderCard(entry.cardEl, entry.data, m); } catch(e) { console.error('renderCard dossier:', e); }
+  }
+}
+
+function renderCard(el, m, dossier) {
   const name   = m.entity_name || m.name || m.legal_name || m.recipient_legal_name || '(unknown entity)';
   const status = m.verifier_status || 'pending';
   const amt    = m.total_funding_cad || 0;
@@ -907,9 +1084,9 @@ function renderCard(el, m) {
     ? `<span class="card-dep">${(m.govt_dependency_pct*100).toFixed(0)}% govt-funded</span>` : '';
   const verdict = m.verifier_notes
     ? `<div class="card-verdict">${esc(m.verifier_notes)}</div>` : '';
-  const trailArr = Array.isArray(m.sql_trail) ? m.sql_trail : [];
-  const trail = trailArr.length
-    ? `<div class="feed-meta" style="margin-top:6px">Queries: ${esc(trailArr.join(' · '))}</div>` : '';
+  const headline = (dossier?.headline || m.headline)
+    ? `<div class="card-headline">${esc(dossier?.headline || m.headline)}</div>` : '';
+  const dosHTML  = dossier ? renderDossier(dossier) : '';
 
   el.innerHTML = `
     <div class="card-top">
@@ -920,25 +1097,86 @@ function renderCard(el, m) {
     <div class="card-amount">${amtFmt}</div>
     <div class="card-meta">cumulative federal funding</div>
     ${dep}
+    ${headline}
     <div class="card-evidence">${esc(m.evidence_summary || '')}</div>
     ${verdict}
-    ${trail}
+    ${dosHTML ? `<div class="card-dossier">${dosHTML}</div>` : ''}
   `;
 }
 
 // ── Feed ───────────────────────────────────────────────────────────
 const feedEl = document.getElementById('feed');
+const feedDetailMap = new WeakMap();
 
 function now() {
   const d = new Date();
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
 }
 
-function feedItem(typeClass, labelHtml, metaHtml = '', id = null) {
+function formatDetail(raw) {
+  if (!raw) return '<span class="fd-empty">No detail available.</span>';
+  const rows = [];
+  const row  = (k, v) => rows.push(`<div class="fd-row"><span class="fd-key">${esc(k)}</span><span class="fd-val">${v}</span></div>`);
+  const code = (k, v) => { if (v == null || v === '') return; rows.push(`<div class="fd-row fd-row-code"><span class="fd-key">${esc(k)}</span><pre class="fd-code">${esc(String(v))}</pre></div>`); };
+  switch (raw.type) {
+    case 'run_start':
+      code('Question', raw.question);
+      break;
+    case 'step_start':
+      if (raw.label) row('Label', esc(raw.label));
+      if (raw.id)    row('Step ID', esc(raw.id));
+      break;
+    case 'tool_call':
+      if (raw.tool_name) row('Tool', esc(raw.tool_name));
+      if (raw.label)     row('Label', esc(raw.label));
+      if (raw.summary)   row('Summary', esc(raw.summary));
+      if (raw.input != null) code('Input', typeof raw.input === 'string' ? raw.input : JSON.stringify(raw.input, null, 2));
+      if (raw.id)        row('ID', esc(raw.id));
+      if (raw._result) {
+        if (raw._result.is_error) row('Result', '<span style="color:var(--bad)">Error</span>');
+        if (raw._result.content != null) code('Output', typeof raw._result.content === 'string' ? raw._result.content : JSON.stringify(raw._result.content, null, 2));
+      }
+      break;
+    case 'task_notification':
+      if (raw.status)  row('Status', esc(raw.status));
+      code('Summary', raw.summary);
+      break;
+    case 'finding': {
+      const name = raw.entity_name || raw.name || raw.legal_name || raw.recipient_legal_name || '';
+      if (name)                    row('Entity', esc(name));
+      if (raw.bn)                  row('BN', esc(raw.bn));
+      if (raw.verifier_status)     row('Status', `<span class="pill ${esc(raw.verifier_status)}">${esc(raw.verifier_status)}</span>`);
+      if (raw.total_funding_cad) {
+        const a = raw.total_funding_cad;
+        row('Funding', esc(a >= 1e6 ? `$${(a/1e6).toFixed(2)}M` : a >= 1e3 ? `$${(a/1e3).toFixed(0)}K` : `$${a.toFixed(0)}`));
+      }
+      if (raw.last_known_year)     row('Last active', esc(String(raw.last_known_year)));
+      if (raw.govt_dependency_pct) row('Govt dependency', `${(raw.govt_dependency_pct*100).toFixed(0)}%`);
+      code('Evidence', raw.evidence_summary);
+      code('Verifier notes', raw.verifier_notes);
+      if (Array.isArray(raw.sql_trail) && raw.sql_trail.length) code('SQL trail', raw.sql_trail.join('\n\n'));
+      break;
+    }
+    case 'assistant_text':
+      code('Text', raw.text);
+      break;
+    case 'result':
+      if (raw.num_turns != null)    row('Turns', String(raw.num_turns));
+      if (raw.total_cost_usd != null) row('Cost', `$${raw.total_cost_usd.toFixed(4)} USD`);
+      break;
+    case 'error':
+      code('Error', raw.error);
+      break;
+  }
+  return rows.length ? rows.join('') : '<span class="fd-empty">No detail available.</span>';
+}
+
+function feedItem(typeClass, labelHtml, metaHtml = '', id = null, raw = null) {
   feedEl.querySelector('.empty')?.remove();
   const el = document.createElement('div');
   el.className = `feed-item type-${typeClass}`;
-  if (id) { el.id = 'fi-' + id; steps[id] = el; }
+  if (id)  { el.id = 'fi-' + id; steps[id] = el; }
+  if (raw) feedDetailMap.set(el, raw);
   el.innerHTML = `
     <div class="feed-label"><span class="feed-time">${now()}</span>${labelHtml}</div>
     ${metaHtml ? `<div class="feed-meta run">${metaHtml}</div>` : ''}
@@ -951,6 +1189,18 @@ function feedItem(typeClass, labelHtml, metaHtml = '', id = null) {
   }
   return el;
 }
+
+feedEl.addEventListener('click', e => {
+  const item = e.target.closest('.feed-item');
+  if (!item) return;
+  item.classList.toggle('expanded');
+  if (item.classList.contains('expanded') && !item.querySelector('.feed-detail')) {
+    const detail = document.createElement('div');
+    detail.className = 'feed-detail';
+    detail.innerHTML = formatDetail(feedDetailMap.get(item));
+    item.appendChild(detail);
+  }
+});
 
 function updateFeedMeta(id, cls, html) {
   const el = steps[id];
@@ -967,7 +1217,9 @@ function handle(m) {
 
     case 'run_start':
       Object.keys(findings).forEach(k => delete findings[k]);
+      Object.keys(dossiers).forEach(k => delete dossiers[k]);
       Object.keys(steps).forEach(k => delete steps[k]);
+      universePanel = null;
       grid.innerHTML = skelCards();
       document.getElementById('findings-tbody').innerHTML =
         '<tr class="table-empty"><td colspan="6">No data yet.</td></tr>';
@@ -977,11 +1229,11 @@ function handle(m) {
       updateKPIs();
       startTimer();
       setRunning(true);
-      feedItem('run_start', `&#x25B6; New investigation`, esc((m.question || '').slice(0, 120)));
+      feedItem('run_start', `&#x25B6; New investigation`, esc((m.question || '').slice(0, 120)), null, m);
       break;
 
     case 'step_start':
-      feedItem('step_start', esc(m.label || '(query)'), 'running…', m.id);
+      feedItem('step_start', esc(m.label || '(query)'), 'running…', m.id, m);
       break;
 
     case 'step_complete': {
@@ -997,37 +1249,53 @@ function handle(m) {
         m.is_subagent ? 'subagent_stop' : 'step_start',
         `${m.icon || '⚙'} ${esc(m.label || m.tool_name)}${m.summary ? ` <span style="font-weight:normal;color:var(--muted)">· ${esc(m.summary)}</span>` : ''}`,
         m.is_subagent ? '(verifier)' : '',
-        m.id
+        m.id, m
       );
       break;
 
-    case 'tool_result':
+    case 'tool_result': {
       updateFeedMeta(m.id, m.is_error ? 'err' : 'ok', m.is_error ? 'error' : 'done');
+      const rEl = steps[m.id];
+      if (rEl) {
+        const prev = feedDetailMap.get(rEl) || {};
+        feedDetailMap.set(rEl, { ...prev, _result: { content: m.content, is_error: m.is_error } });
+      }
       break;
+    }
 
     case 'task_started':
-      feedItem('subagent_stop', `&#x1F916; Verifier subagent started`);
+      feedItem('subagent_stop', `&#x1F916; Verifier subagent started`, '', null, m);
       break;
 
     case 'task_notification':
-      feedItem('subagent_stop', `&#x2713; Verifier: ${esc((m.summary || m.status || '').slice(0, 100))}`);
+      feedItem('subagent_stop', `&#x2713; Verifier: ${esc((m.summary || m.status || '').slice(0, 100))}`, '', null, m);
+      break;
+
+    case 'universe':
+      renderUniverse(m);
+      feedItem('step_start', `&#x1F30D; Universe: ${esc(String(m.n_final_candidates||0))} candidates from ${esc(String(m.n_universe_pre_gate||0))} pre-gate`, '', null, m);
       break;
 
     case 'finding':
       upsertCard(m);
       feedItem('finding',
         `&#x25A6; Finding: ${esc(m.entity_name || m.name || m.legal_name || m.recipient_legal_name || '(unknown)')}`,
-        `status → <strong>${m.verifier_status}</strong>`
+        `status → <strong>${m.verifier_status}</strong>`, null, m
       );
       break;
 
+    case 'dossier':
+      attachDossier(m);
+      feedItem('subagent_stop', `&#x1F4C2; Dossier: BN ${esc(m.bn||'?')}${m.headline ? ` — ${esc(m.headline.slice(0,80))}` : ''}`, '', null, m);
+      break;
+
     case 'subagent_stop':
-      feedItem('subagent_stop', '&#x2713; Verifier subagent finished');
+      feedItem('subagent_stop', '&#x2713; Verifier subagent finished', '', null, m);
       break;
 
     case 'assistant_text':
       if (m.text && m.text.trim().length > 0)
-        feedItem('assistant_text', esc(m.text.trim().slice(0, 180) + (m.text.length > 180 ? '…' : '')));
+        feedItem('assistant_text', esc(m.text.trim().slice(0, 180) + (m.text.length > 180 ? '…' : '')), '', null, m);
       break;
 
     case 'result':
@@ -1035,7 +1303,7 @@ function handle(m) {
       if (runStart) timerEl.textContent = `${((Date.now()-runStart)/1000).toFixed(1)}s`;
       feedItem('result', `&#x25CF; Run complete`,
         [m.num_turns != null ? `${m.num_turns} turns` : '', m.total_cost_usd != null ? `$${m.total_cost_usd.toFixed(4)}` : '']
-          .filter(Boolean).join(' · '));
+          .filter(Boolean).join(' · '), null, m);
       break;
 
     case 'run_complete':
@@ -1046,13 +1314,13 @@ function handle(m) {
     case 'run_cancelled':
       stopTimer();
       setRunning(false);
-      feedItem('error', '&#x25A0; Investigation stopped');
+      feedItem('error', '&#x25A0; Investigation stopped', '', null, m);
       break;
 
     case 'error':
       stopTimer();
       setRunning(false);
-      feedItem('error', `&#x26A0; Error: ${esc(m.error || 'unknown')}`);
+      feedItem('error', `&#x26A0; Error: ${esc(m.error || 'unknown')}`, '', null, m);
       break;
   }
 }
@@ -1110,28 +1378,76 @@ const dot   = document.getElementById('dot');
 const label = document.getElementById('conn-label');
 
 async function triggerRun() {
+  try { await fetch('/api/run', { method: 'POST' }); }
+  catch { /**/ }
+}
+
+async function applySnapshot() {
+  let snap;
   try {
-    const r = await fetch('/api/run', { method: 'POST' });
-    const d = await r.json();
-    // If already running when we connected, sync the stop-button state
-    if (!d.started) {
-      const s = await fetch('/api/status');
-      const st = await s.json();
-      if (st.running) setRunning(true);
+    const r = await fetch('/api/snapshot');
+    snap = await r.json();
+  } catch { return; }
+
+  const findingsList = Object.values(snap.findings || {});
+  if (!findingsList.length && !snap.is_running) return; // nothing to restore
+
+  // Reset display without starting the timer (avoids the startTimer() side-effect
+  // of handle('run_start') — we manage timer state explicitly below)
+  Object.keys(findings).forEach(k => delete findings[k]);
+  grid.innerHTML = findingsList.length ? '' : skelCards();
+  document.getElementById('findings-tbody').innerHTML =
+    '<tr class="table-empty"><td colspan="6">No data yet.</td></tr>';
+  activeFilter = 'all';
+  applyFilter('all');
+
+  // Replay cards — skip feed to avoid flooding it with historical entries
+  findingsList.forEach(f => upsertCard(f));
+
+  // Restore timer / running state
+  if (snap.is_running) {
+    setRunning(true);
+    startTimer(); // restarts from 0; start timestamp not persisted server-side
+  } else {
+    stopTimer();
+    setRunning(false);
+    if (snap.run_meta?.duration_ms) {
+      timerEl.textContent = `${(snap.run_meta.duration_ms / 1000).toFixed(1)}s`;
     }
-  } catch { /**/ }
+  }
 }
 
 function connect() {
   const ws = new WebSocket(`ws://${location.host}/ws/live`);
-  ws.addEventListener('open', () => {
+  let pending = [];
+  let ready   = false;
+
+  // Buffer events while applySnapshot() is in flight so a status-update event
+  // arriving mid-fetch doesn't get overwritten by stale snapshot data.
+  // Last-write-wins via upsertCard means drained events always supersede snapshot.
+  ws.addEventListener('message', ev => {
+    try {
+      const m = JSON.parse(ev.data);
+      ready ? handle(m) : pending.push(m);
+    } catch { /**/ }
+  });
+
+  ws.addEventListener('open', async () => {
     dot.classList.add('live');
     label.textContent = 'Live';
-    triggerRun();
+    await triggerRun();    // start run if not already running
+    await applySnapshot(); // restore prior cards/KPIs from server state
+    ready = true;          // open the gate
+    pending.forEach(m => { try { handle(m); } catch { /**/ } });
+    pending = [];
   });
-  ws.addEventListener('close',   () => { dot.classList.remove('live'); label.textContent = 'Reconnecting…'; setTimeout(connect, 2000); });
-  ws.addEventListener('error',   () => ws.close());
-  ws.addEventListener('message', ev => { try { handle(JSON.parse(ev.data)); } catch { /**/ } });
+
+  ws.addEventListener('close', () => {
+    dot.classList.remove('live');
+    label.textContent = 'Reconnecting…';
+    setTimeout(connect, 2000);
+  });
+  ws.addEventListener('error', () => ws.close());
 }
 connect();
 

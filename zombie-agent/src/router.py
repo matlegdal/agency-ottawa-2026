@@ -68,6 +68,23 @@ async def api_status() -> dict:
     return {"running": run_manager.is_running()}
 
 
+@router.get("/api/snapshot")
+async def api_snapshot() -> dict:
+    """Return current run state for dashboard reconnect/refresh recovery.
+
+    The dashboard calls this on every WS open to restore cards and KPIs
+    without waiting for new events to trickle in.
+    """
+    s = run_store.state
+    return {
+        "question":    s.question,
+        "findings":    s.findings,    # bn → latest finding payload
+        "run_meta":    s.run_meta,
+        "is_complete": s.is_complete,
+        "is_running":  run_manager.is_running(),
+    }
+
+
 @router.get("/ping")
 async def ping(request: Request) -> dict[str, str]:
     return {"status": "ok"}
