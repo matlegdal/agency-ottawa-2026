@@ -3,6 +3,25 @@ name: zombie-detection
 description: Recipe for finding federally-funded recipients that ceased operations shortly after receiving public money (Challenge 1 — Zombie Recipients). Use when investigating zombie/dissolution/disappearance questions.
 ---
 
+# CHL clause map — what the literal challenge asks vs what we compute
+
+The challenge text is literal. Every clause maps to a specific column or
+filter in this skill so the dossier can be checked against the question
+verbatim.
+
+| CHL clause                                          | Where enforced                                                                                                                                                                                  |
+|-----------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| "companies AND nonprofits"                          | Step A `LEFT JOIN charity`; companies pass via the `no_post_grant_activity` branch                                                                                                              |
+| "received large amounts of public funding"          | $1M cumulative `fed.vw_agreement_current` HARD GATE in the `exposure` CTE                                                                                                                       |
+| "ceased operations shortly after"                   | Death-signal CASE expression — one of {t3010_self_dissolution, dissolved_and_stopped_filing, dissolved, stopped_filing, no_post_grant_activity}                                                  |
+| "bankrupt"                                          | NOT directly observable in this dataset (no federal/provincial bankruptcy registry coverage). Disclose explicitly on the dossier — do not silently substitute. Most downstream bankruptcies show up as registry "dissolved" events, which IS captured. |
+| "dissolved"                                         | `cra_financial_general.field_1570 = TRUE` (first-party, strongest) OR `ab.ab_non_profit.status` ILIKE dissolved/struck/inactive/revoked                                                          |
+| "stopped filing"                                    | `cra_identification.last_fy <= 2022` for designation C charities                                                                                                                                 |
+| "within 12 months of receiving funding"             | `months_grant_to_death_signal` SORTABLE column (NOT a hard gate; partial 2024 data + AB-only-dissolution cases produce NULLs). Closer to 12 = stronger CHL match                                |
+| "Flag entities where public funding makes up more than 70-80% of total revenue" | `cra.govt_funding_by_charity.govt_share_of_rev >= 70` on the most-recent clean filing (Step E). REQUIRED to compute for every charity candidate                                                 |
+| "could not survive without it"                      | Same as above — high govt-share-of-rev is the operationalization                                                                                                                                |
+| "did the public get anything for its money?"        | Surface `cra.overhead_by_charity` (admin+fundraising / programs) on the dossier when available; for non-charity recipients, surface program/agreement description from `fed.vw_grants_decoded`  |
+
 # Filters applied before any candidate enters consideration
 
 EXCLUDE entities whose `cra.cra_identification.designation` is **A** (public
@@ -144,8 +163,11 @@ WITH exposure AS (
 charity AS (
   -- T3010 registration state per BN root. NULL via LEFT JOIN for
   -- non-CRA-registered recipients (companies, foreign entities, etc.).
+  -- last_fpe = the actual fiscal-period-end date of the most recent
+  -- filing, used by the 12-month-proximity column below.
   SELECT LEFT(bn,9) AS bn_root,
          MAX(fiscal_year) AS last_fy,
+         MAX(fpe)         AS last_fpe,
          MAX(designation) AS designation
   FROM cra.cra_identification
   GROUP BY 1
@@ -191,13 +213,16 @@ SELECT
   e.latest_end_date,
   e.n_agreements,
   c.last_fy      AS last_t3010_year,
+  c.last_fpe     AS last_t3010_fpe,
   c.designation,
   d.ab_status    AS ab_dissolution_status,
   s.dissolution_fpe AS t3010_self_dissolution_fpe,
   -- Which CHL death signal fired (CHL: "bankrupt, dissolved, or stopped filing").
   -- Priority: self-reported dissolution > AB-registry dissolution > T3010
   -- silence > non-charity post-grant absence. (Bankruptcy not directly
-  -- observable; folded into "dissolved" via downstream registry events.)
+  -- observable in this dataset; folded into "dissolved" via downstream
+  -- registry events. The dossier should disclose this coverage gap rather
+  -- than silently substitute.)
   CASE
     WHEN s.bn_root IS NOT NULL                                               THEN 't3010_self_dissolution'
     WHEN d.bn_root IS NOT NULL AND c.designation = 'C' AND c.last_fy <= 2022 THEN 'dissolved_and_stopped_filing'
@@ -205,7 +230,29 @@ SELECT
     WHEN c.designation = 'C' AND c.last_fy <= 2022                           THEN 'stopped_filing'
     WHEN c.bn_root IS NULL                                                   THEN 'no_post_grant_activity'
     ELSE NULL
-  END AS death_signal
+  END AS death_signal,
+  -- 12-MONTH PROXIMITY (CHL: "within 12 months of receiving funding").
+  -- Months between latest_end_date (last FED agreement payment window
+  -- closed) and the death-event date. The death-event date depends on
+  -- which signal fired:
+  --   * t3010_self_dissolution → s.dissolution_fpe (decisive first-party)
+  --   * stopped_filing / dissolved_and_stopped_filing → c.last_fpe + 12mo
+  --     (we observed the last filing on c.last_fpe; the "death event" is
+  --     the next expected filing they didn't make)
+  --   * dissolved (AB-only) / no_post_grant_activity → NULL (no event date)
+  -- This is a SORTABLE column, NOT a hard gate. CHL's "12 months" is the
+  -- literal CHL test for "shortly after"; smaller values are stronger
+  -- CHL matches. Surface it on the dossier card so the reader can judge
+  -- proximity directly. NULL means we can't compute it for this signal.
+  CASE
+    WHEN s.dissolution_fpe IS NOT NULL AND e.latest_end_date IS NOT NULL THEN
+      (EXTRACT(YEAR  FROM age(s.dissolution_fpe, e.latest_end_date))::int * 12
+     + EXTRACT(MONTH FROM age(s.dissolution_fpe, e.latest_end_date))::int)
+    WHEN c.last_fpe IS NOT NULL AND c.last_fy <= 2022 AND e.latest_end_date IS NOT NULL THEN
+      (EXTRACT(YEAR  FROM age(c.last_fpe + INTERVAL '12 months', e.latest_end_date))::int * 12
+     + EXTRACT(MONTH FROM age(c.last_fpe + INTERVAL '12 months', e.latest_end_date))::int)
+    ELSE NULL
+  END AS months_grant_to_death_signal
 FROM exposure e
 LEFT JOIN charity            c ON c.bn_root = e.bn_root
 LEFT JOIN ab_dissolved       d ON d.bn_root = e.bn_root
@@ -226,6 +273,27 @@ WHERE
        -- (d) Companies / unregistered nonprofits with no post-grant activity
        OR (
          c.bn_root IS NULL
+         -- Exclude operationally publicly-funded non-charity entities from
+         -- this branch. These are governments, police services, school
+         -- boards, hospitals, universities — they may go quiet in the FED
+         -- dataset because their funding rolled to a non-FED federal-
+         -- provincial program (e.g. Treaty Three Police Service Board has
+         -- ongoing federal-First-Nations policing agreements that aren't in
+         -- this dataset's later years), not because they ceased operations.
+         -- AB grants are ALSO not a meaningful liveness signal for them
+         -- (an Ontario police service is never expected to receive AB
+         -- grants), which is why the absence of AB activity below would
+         -- otherwise wrongly fire the zombie signal.
+         AND e.recipient_name !~* (
+           '\m(POLICE|POLICING|TRIBAL POLICE|FIRST NATION|BAND COUNCIL|'
+           'GOVERNMENT OF|MINISTRY OF|MINISTÈRE|CITY OF|CITÉ DE|'
+           'MUNICIPALITY OF|MUNICIPALITÉ|TOWN OF|VILLE DE|VILLAGE OF|'
+           'REGIONAL DISTRICT|REGIONAL MUNICIPALITY|COUNTY OF|'
+           'COLLEGE OF|UNIVERSITY OF|UNIVERSITÉ|HOSPITAL|HÔPITAL|'
+           'HEALTH AUTHORITY|HEALTH CENTRE|REGIE DE LA SANTÉ|'
+           'SCHOOL DIVISION|SCHOOL DISTRICT|SCHOOL BOARD|'
+           'COMMISSION SCOLAIRE|SCHOOL AUTHORITY|PUBLIC LIBRARY)\M'
+         )
          AND NOT EXISTS (
            SELECT 1 FROM ab.ab_grants ag
            JOIN general.entity_source_links esl
@@ -249,6 +317,17 @@ WHERE
     SELECT 1 FROM fed.grants_contributions
     WHERE LEFT(NULLIF(recipient_business_number,''),9) = e.bn_root
       AND amendment_date >= '2024-01-01')
+  -- No FED agreement extends INTO 2024+ — gate-side enforcement of the
+  -- live-agreement disqualifier defined under "Live-agreement test"
+  -- above. Catches zero-amendment multi-year contracts (e.g. CIC
+  -- settlement-services agreements running to 2025-03-31). The
+  -- end_date >= start_date guard drops the 947 KDI F-9 corrupt-date rows
+  -- where end < start.
+  AND NOT EXISTS (
+    SELECT 1 FROM fed.grants_contributions
+    WHERE LEFT(NULLIF(recipient_business_number,''),9) = e.bn_root
+      AND agreement_end_date >= '2024-01-01'
+      AND agreement_end_date >= agreement_start_date)
 ORDER BY e.total_committed_cad DESC;
 ```
 
@@ -279,10 +358,93 @@ This query enforces:
 7. **No federal amendment activity in 2024+** (`amendment_date`). An
    agreement still being amended after the cutoff means the relationship
    is alive — REFUTED.
+8. **Live-agreement disqualifier**: NOT EXISTS any agreement with
+   `agreement_end_date >= '2024-01-01'` AND `end_date >= start_date`.
+   This is the gate-side enforcement of the rule defined under the
+   "Live-agreement test" header above. Catches zero-amendment multi-year
+   contracts (e.g. a 2020-signed 5-year contract that runs to 2025-03-31
+   and was never amended). The agreement is ALIVE even if no new
+   agreements have started — refute as zombie. Such candidates may be
+   Challenge 2 (Ghost Capacity) leads if delivery capacity is missing,
+   but that is a different investigation.
 
 Running this query produces the deterministic candidate list. The
 ordering is determined by `total_committed_cad DESC`, so when we surface
 the top N, we always show the biggest verified zombies.
+
+## Step A1 — universe + gate counts (publish ONCE)
+
+Run this query exactly once, immediately after Step A. It reports the
+pre-gate universe size and how many candidates each successive gate
+dropped, so the audience can audit the WHOLE methodology, not just the
+survivors. Pass the five counts to `mcp__ui_bridge__publish_universe`.
+
+```sql
+-- Step A1: universe + gate counts
+WITH exposure AS (
+  SELECT LEFT(NULLIF(recipient_business_number,''), 9) AS bn_root,
+         SUM(agreement_value) AS total_committed_cad
+  FROM fed.vw_agreement_current
+  WHERE LEFT(NULLIF(recipient_business_number,''), 9) ~ '^[1-9][0-9]{8}$'
+    AND agreement_start_date BETWEEN '2018-01-01' AND '2022-12-31'
+  GROUP BY 1
+  HAVING SUM(agreement_value) >= 1000000
+),
+charity AS (
+  SELECT LEFT(bn,9) AS bn_root,
+         MAX(fiscal_year) AS last_fy,
+         MAX(designation) AS designation
+  FROM cra.cra_identification GROUP BY 1
+),
+not_foundation AS (
+  SELECT e.* FROM exposure e
+  LEFT JOIN charity c ON c.bn_root = e.bn_root
+  WHERE c.designation IS NULL OR c.designation NOT IN ('A','B')
+),
+not_live_agreement AS (
+  SELECT * FROM not_foundation nf
+  WHERE NOT EXISTS (
+    SELECT 1 FROM fed.grants_contributions
+    WHERE LEFT(NULLIF(recipient_business_number,''),9) = nf.bn_root
+      AND ((agreement_start_date >= '2024-01-01')
+        OR (amendment_date >= '2024-01-01')
+        OR (agreement_end_date >= '2024-01-01'
+            AND agreement_end_date >= agreement_start_date)))
+)
+SELECT
+  (SELECT COUNT(*) FROM exposure)            AS n_universe_pre_gate,
+  (SELECT COUNT(*) FROM not_foundation)      AS n_after_foundation_filter,
+  (SELECT COUNT(*) FROM not_live_agreement)  AS n_after_live_agreement_filter,
+  (SELECT COUNT(*) FROM not_live_agreement)  AS n_after_non_charity_filter,
+  -- n_final_candidates is the row count of Step A's main query — pass
+  -- that value directly from Step A's result row count, not re-derived
+  -- here. The non-charity-filter column is mirrored from
+  -- not_live_agreement above because the regex filter applies inside one
+  -- branch of the death-signal disjunction (see Step A); modeling it as
+  -- a clean intersection here would over-report drops.
+  (SELECT COUNT(*) FROM not_live_agreement)  AS n_pre_death_signal;
+```
+
+Then call:
+
+```
+mcp__ui_bridge__publish_universe(
+  n_universe_pre_gate=<col 1>,
+  n_after_foundation_filter=<col 2>,
+  n_after_live_agreement_filter=<col 3>,
+  n_after_non_charity_filter=<col 4>,
+  n_final_candidates=<row count of Step A>,
+  narrative="Universe: <U> recipients with cumulative federal commitment "
+            "≥ $1M between 2018-2022. Gates dropped: foundations (-X), "
+            "live federal agreements running past 2024-01-01 (-Y); "
+            "<N> remained after a death signal was required.",
+  sql_trail=["Step A1: universe + gate counts", "Step A: deterministic ..."]
+)
+```
+
+The narrative is a TEMPLATED format string — fill in the integers from
+the row above. Do NOT estimate or round. The audience sees these numbers
+and can audit them against the database directly.
 
 ## Step B — verify EVERY candidate, then sort verified by $ desc
 
@@ -353,6 +515,11 @@ querying so a $5B-typo year doesn't poison the ratio.
 -- Step E: govt-share-of-revenue from the pre-computed table, with
 -- impossibility-row exclusion applied at query time (the build script
 -- doesn't pre-filter these).
+-- DO NOT remove the t3010_impossibilities filter or the
+-- PLAUS_MAGNITUDE_OUTLIER filter. cra.govt_funding_by_charity is built
+-- without them (CRA/scripts/advanced/08-government-funding-analysis.js);
+-- a $5B unit-error year can flip the dependency flag without these
+-- guards.
 SELECT gfc.bn,
        gfc.fiscal_year,
        gfc.total_govt,
@@ -448,6 +615,153 @@ Refuted and challenged-then-refuted candidates remain visible on the
 briefing panel as a record of the methodology — they show the verifier
 caught structural special-cases (designation A, live agreement, sub-$1M
 exposure, etc.).
+
+## Step H — dossier publish for each VERIFIED candidate
+
+For every candidate that ended VERIFIED (not REFUTED, not AMBIGUOUS),
+run THREE small SQL queries and call
+`mcp__ui_bridge__publish_dossier` ONCE per BN. Every value passed into
+the dossier MUST come from a SQL query in this session — never paraphrase
+or round.
+
+### H1 — Funding events timeline
+
+```sql
+-- Step H1: per-agreement timeline for the dossier (BN <bn_root>)
+SELECT EXTRACT(YEAR FROM agreement_start_date)::int AS year,
+       owner_org_title AS dept,
+       prog_name_en    AS program,
+       agreement_value AS amount_cad,
+       agreement_start_date AS start_date,
+       agreement_end_date   AS end_date,
+       ref_number
+FROM fed.vw_agreement_current
+WHERE LEFT(NULLIF(recipient_business_number,''),9) = $1
+  AND agreement_value > 0
+ORDER BY agreement_start_date;
+```
+
+Pass the rows as `funding_events`. Up to ~30 rows is fine; if more, take
+the largest 30 by `amount_cad`.
+
+### H2 — Dependence-ratio history
+
+```sql
+-- Step H2: govt-share-of-rev history for the sparkline (BN <bn_root>)
+SELECT gfc.fiscal_year,
+       gfc.govt_share_of_rev AS govt_share_pct,  -- 0-100
+       gfc.total_govt        AS total_govt_cad,
+       gfc.revenue           AS revenue_cad
+FROM cra.govt_funding_by_charity gfc
+WHERE LEFT(gfc.bn,9) = $1
+  AND NOT EXISTS (
+    SELECT 1 FROM cra.t3010_impossibilities ti
+    WHERE ti.bn = gfc.bn
+      AND EXTRACT(YEAR FROM ti.fpe)::int = gfc.fiscal_year)
+  AND NOT EXISTS (
+    SELECT 1 FROM cra.t3010_plausibility_flags pf
+    WHERE pf.bn = gfc.bn
+      AND EXTRACT(YEAR FROM pf.fpe)::int = gfc.fiscal_year
+      AND pf.rule_code = 'PLAUS_MAGNITUDE_OUTLIER')
+ORDER BY gfc.fiscal_year;
+```
+
+Pass the rows as `dependence_history`. Empty list is fine for non-charity
+recipients or charities with zero recorded govt revenue — the UI
+shows "no recorded govt revenue" in that case.
+
+### H3 — Overhead snapshot ("did the public get anything?")
+
+```sql
+-- Step H3: most-recent clean overhead snapshot (BN <bn_root>)
+SELECT obc.fiscal_year,
+       obc.strict_overhead_pct,    -- (admin + fundraising) / revenue, %
+       obc.programs                AS programs_cad,
+       (obc.administration + obc.fundraising) AS admin_fundraising_cad
+FROM cra.overhead_by_charity obc
+WHERE LEFT(obc.bn,9) = $1
+  AND obc.outlier_flag = false
+  AND NOT EXISTS (
+    SELECT 1 FROM cra.t3010_impossibilities ti
+    WHERE ti.bn = obc.bn
+      AND EXTRACT(YEAR FROM ti.fpe)::int = obc.fiscal_year)
+ORDER BY obc.fiscal_year DESC
+LIMIT 1;
+```
+
+Pass as `overhead_snapshot` (one dict, or `{}` if no row — non-charity
+recipients have no T3010 financial data).
+
+### H4 — Death-event banner text
+
+A single deterministic string built from values you ALREADY have from
+Step A:
+- if `t3010_self_dissolution_fpe` is not null:
+  `f"Self-dissolved on {fpe_iso_date} (T3010 line A2: charity wound up, dissolved, or terminated operations)"`
+- else if `ab_dissolution_status` is not null AND `last_t3010_year <= 2022`:
+  `f"Alberta non-profit registry status: {status}; stopped filing T3010 after FY{last_t3010_year}"`
+- else if `ab_dissolution_status` is not null:
+  `f"Alberta non-profit registry status: {status}"`
+- else if `last_t3010_year <= 2022`:
+  `f"Stopped filing T3010 after FY{last_t3010_year} (last received federal funding through {latest_end_iso_date})"`
+- else (`no_post_grant_activity` branch):
+  `f"No federal grants since 2024-01-01 and no Alberta grant activity in FY 2024-25 or 2025-26 (BN {bn_root}, last federal payment window closed {latest_end_iso_date})"`
+
+Pass as `death_event_text`.
+
+### H5 — Templated headline (DETERMINISTIC, NOT LLM-AUTHORED)
+
+Build the headline as a Python format string from the values above.
+**Do NOT rephrase, summarize, or LLM-author this string.** The headline
+is structurally deterministic so the same database state produces the
+same headline every run.
+
+For charity candidates with a govt-dependency value:
+```
+f"${total_M:.2f}M in federal commitments {first_year}–{last_year} to a "
+f"recipient that {death_clause}; on its most recent clean filing, "
+f"government funding was {govt_dependency_pct:.1f}% of total revenue."
+```
+
+For charity candidates WITHOUT a govt-dependency value (no row in
+`govt_funding_by_charity`):
+```
+f"${total_M:.2f}M in federal commitments {first_year}–{last_year} to a "
+f"recipient that {death_clause}; the entity reported no government "
+f"revenue on its T3010, so CHL's 70-80% revenue-dependency flag does "
+f"not apply."
+```
+
+For non-charity candidates (`no_post_grant_activity`):
+```
+f"${total_M:.2f}M in federal commitments {first_year}–{last_year} to a "
+f"non-charity recipient with no federal grants since 2024-01-01 and no "
+f"AB grant activity in FY 2024-25 or 2025-26."
+```
+
+`death_clause` derives mechanically from the death signal:
+- `t3010_self_dissolution`             → `"self-dissolved on {fpe}"`
+- `dissolved_and_stopped_filing`       → `"dissolved (Alberta registry: {status}) and stopped filing T3010 after FY{last_fy}"`
+- `dissolved`                          → `"was marked {status} in the Alberta non-profit registry"`
+- `stopped_filing`                     → `"stopped filing T3010 after FY{last_fy}"`
+
+### H6 — Call publish_dossier
+
+```
+mcp__ui_bridge__publish_dossier(
+  bn=<9-digit BN root>,
+  headline=<H5 string>,
+  funding_events=<H1 rows>,
+  dependence_history=<H2 rows>,
+  overhead_snapshot=<H3 dict or {}>,
+  death_event_text=<H4 string>,
+  sql_trail=["Step H1: ...", "Step H2: ...", "Step H3: ..."]
+)
+```
+
+The UI attaches the dossier to the existing finding card (matched by
+`bn`). Refuted and ambiguous candidates do NOT get a dossier; only
+the verified ones become auditable from the briefing panel.
 
 # Pitfalls
 

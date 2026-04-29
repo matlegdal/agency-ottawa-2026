@@ -20,11 +20,16 @@ The `data-quirks` skill lists the defects that will silently fool you. Always
 read it before writing your first query. The big four for cross-dataset
 questions:
 - `fed.grants_contributions.agreement_value` is **cumulative** across
-  amendments. Never naïvely `SUM` the base table. Either filter
-  `WHERE is_amendment = false` (originals-only approximation), or use the
-  inline `agreement_current` CTE pattern documented in `data-quirks`. The
-  database does NOT ship with `vw_agreement_current` /
-  `vw_agreement_originals` views; do not reference them.
+  amendments. Never naïvely `SUM` the base table. The schema ships two
+  canonical views — `fed.vw_agreement_current` (latest amendment per
+  agreement, F-1 + F-3 safe by construction) and `fed.vw_agreement_originals`
+  (`is_amendment = false` only, initial commitment) — per `FED/CLAUDE.md`
+  and `FED/scripts/01-migrate.js:270-307`. Use them directly. They are the
+  canonical mitigation for both F-3 (cumulative-amendment double-count)
+  and F-1 (ref_number collisions across distinct recipients).
+  `fed.vw_grants_decoded` joins lookup tables for human-readable
+  department / program / agreement-type / recipient-type / province labels
+  — useful when rendering a dossier.
 - Filter `cra.t3010_impossibilities` from any CRA financial aggregation.
 - Names drift. Always resolve through `general.entity_golden_records` or
   `general.vw_entity_funding`.

@@ -264,6 +264,89 @@
     .sql-kw { color: #79c0ff; font-weight: 600; }
     .sql-comment { color: #8b95a7; font-style: italic; }
     .sql-string { color: #a5d6a7; }
+
+    /* Universe panel — sits at the top of the briefing column */
+    .universe {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      background: var(--panel-3);
+    }
+    .universe .uv-title {
+      font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 8px; font-weight: 600;
+    }
+    .universe .uv-counts {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 6px 12px; font-size: 12px; margin-bottom: 8px;
+    }
+    .universe .uv-counts .v {
+      font-variant-numeric: tabular-nums; color: var(--fg); font-weight: 600;
+    }
+    .universe .uv-counts .l { color: var(--muted); }
+    .universe .uv-narrative {
+      font-size: 12px; color: var(--fg); margin-top: 8px; line-height: 1.5;
+      padding-top: 8px; border-top: 1px solid var(--line-soft);
+    }
+
+    /* Dossier — appended to verified finding cards */
+    .finding .headline {
+      font-size: 13px; line-height: 1.5; color: var(--fg);
+      margin: 8px 0 10px 0; padding: 8px 10px;
+      background: rgba(63,185,133,.08); border-left: 2px solid var(--verified);
+      border-radius: 0 4px 4px 0;
+    }
+    .finding .dossier { margin-top: 12px; }
+    .dossier-section { margin-bottom: 12px; }
+    .dossier-section .ds-title {
+      font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 6px; font-weight: 600;
+    }
+    .death-banner {
+      padding: 8px 10px; background: rgba(217,107,107,.10);
+      border-left: 2px solid var(--bad); border-radius: 0 4px 4px 0;
+      font-size: 12px; color: var(--fg);
+    }
+    .funding-events {
+      max-height: 180px; overflow-y: auto;
+      font-size: 11px; line-height: 1.4;
+    }
+    .funding-events .fe-row {
+      display: grid; grid-template-columns: 44px 1fr auto; gap: 8px;
+      padding: 4px 0; border-bottom: 1px solid var(--line-soft);
+    }
+    .funding-events .fe-row:last-child { border-bottom: 0; }
+    .funding-events .fe-year { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .funding-events .fe-desc { color: var(--fg); }
+    .funding-events .fe-amt {
+      color: var(--fg); font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    .funding-events .fe-dept { color: var(--muted); font-size: 10px; display: block; }
+    .sparkline {
+      width: 100%; height: 60px; display: block;
+      background: var(--panel); border-radius: 4px;
+    }
+    .spark-axis { stroke: var(--line); stroke-width: 1; }
+    .spark-threshold { stroke: var(--bad); stroke-dasharray: 2 3; stroke-width: 1; }
+    .spark-line { stroke: var(--accent); stroke-width: 2; fill: none; }
+    .spark-dot  { fill: var(--accent); }
+    .spark-label { font-size: 9px; fill: var(--muted); }
+    .dependence-empty {
+      font-size: 11px; color: var(--muted); font-style: italic;
+      padding: 8px 0;
+    }
+    .overhead-line {
+      font-size: 12px; color: var(--fg);
+      padding: 6px 10px; background: var(--panel);
+      border-radius: 4px;
+    }
+    .overhead-line .o-pct { color: var(--warn); font-weight: 600; }
+    .bankruptcy-disclosure {
+      margin-top: 10px; padding: 6px 10px;
+      font-size: 10px; color: var(--muted); font-style: italic;
+      border-top: 1px dashed var(--line-soft);
+    }
   </style>
 </head>
 <body>
@@ -377,6 +460,8 @@ function handle(m) {
     case 'task_progress':        return onTaskProgress(m);
     case 'task_notification':    return onTaskNotification(m);
     case 'finding':              return onFinding(m);
+    case 'universe':             return onUniverse(m);
+    case 'dossier':              return onDossier(m);
     case 'thinking':             return onThinking(m);
     case 'result':               return onResult(m);
     case 'run_complete':         return onRunComplete(m);
@@ -436,6 +521,12 @@ function onToolCall(m) {
 
   if (m.tool_name === 'mcp__ui_bridge__publish_finding') {
     setNowActive(`Publishing finding: ${m.summary}`);
+  }
+  if (m.tool_name === 'mcp__ui_bridge__publish_universe') {
+    setNowActive(`Publishing universe: ${m.summary}`);
+  }
+  if (m.tool_name === 'mcp__ui_bridge__publish_dossier') {
+    setNowActive(`Publishing dossier: ${m.summary}`);
   }
 
   // Render the tool-call card.
@@ -551,22 +642,203 @@ function onFinding(m) {
   const status = m.verifier_status || 'pending';
   card.className = `finding ${status}`;
   const amt = (m.total_funding_cad || 0) / 1e6;
+  // Preserve any dossier already attached (it may arrive before or after
+  // the verdict publish since the order depends on the agent's plan).
+  const existingDossier = card.querySelector('.dossier');
+  const dossierHtml = existingDossier ? existingDossier.outerHTML : '<div class="dossier"></div>';
   card.innerHTML = `
     <div class="name"></div>
     <div class="meta"></div>
     <div class="amt"></div>
+    <div class="headline" style="display:none"></div>
     <div class="summary"></div>
     <div class="verdict">
       <span class="pill ${status}">${status}</span>
       <span class="notes"></span>
+    </div>
+    ${dossierHtml}
+    <div class="bankruptcy-disclosure">
+      Bankruptcy registry coverage: not in this dataset. Downstream
+      bankruptcies typically appear as "dissolved" / "struck" events in the
+      Alberta non-profit registry or as T3010 self-dissolution
+      (field_1570 = TRUE), both of which are observable.
     </div>`;
   card.querySelector('.name').textContent = m.entity_name || '(unnamed)';
   card.querySelector('.meta').textContent =
     `BN ${m.bn || '—'} · last seen ${m.last_known_year || '—'}` +
-    (m.govt_dependency_pct ? ` · govt-dependency ${(m.govt_dependency_pct*100).toFixed(0)}%` : '');
+    (m.govt_dependency_pct ? ` · govt-dependency ${m.govt_dependency_pct.toFixed(1)}%` : '');
   card.querySelector('.amt').textContent = `$${amt.toFixed(2)}M`;
   card.querySelector('.summary').textContent = m.evidence_summary || '';
   card.querySelector('.notes').textContent = m.verifier_notes ? `— ${m.verifier_notes}` : '';
+  // The headline is populated by onDossier; keep it hidden until a
+  // dossier publish lands. (Only VERIFIED candidates get a dossier per
+  // the skill's Step H rule.)
+  if (m.headline) {
+    const h = card.querySelector('.headline');
+    h.textContent = m.headline;
+    h.style.display = 'block';
+  }
+}
+
+function onUniverse(m) {
+  // Render or replace a single universe panel at the top of the
+  // briefing column. Counts come from Step A1 SQL — never re-rendered.
+  let panel = document.getElementById('universe-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'universe-panel';
+    panel.className = 'universe';
+    briefing.querySelector('.empty')?.remove();
+    briefing.insertBefore(panel, briefing.firstChild);
+  }
+  const fmt = (n) => (n == null ? '—' : Number(n).toLocaleString());
+  const pre = m.n_universe_pre_gate;
+  const afterFnd = m.n_after_foundation_filter;
+  const afterLive = m.n_after_live_agreement_filter;
+  const afterNonChar = m.n_after_non_charity_filter;
+  const finalN = m.n_final_candidates;
+  panel.innerHTML = `
+    <div class="uv-title">Universe — search space &amp; gates</div>
+    <div class="uv-counts">
+      <div><span class="v">${fmt(pre)}</span> <span class="l">recipients ≥ $1M (2018-2022)</span></div>
+      <div><span class="v">${fmt(afterFnd)}</span> <span class="l">after foundation gate</span></div>
+      <div><span class="v">${fmt(afterLive)}</span> <span class="l">after live-agreement gate</span></div>
+      <div><span class="v">${fmt(afterNonChar)}</span> <span class="l">after non-charity gate</span></div>
+      <div><span class="v">${fmt(finalN)}</span> <span class="l">final candidates surfaced</span></div>
+    </div>
+    <div class="uv-narrative"></div>`;
+  panel.querySelector('.uv-narrative').textContent = m.narrative || '';
+}
+
+function onDossier(m) {
+  // Attach dossier to the existing finding card, matched by BN. If the
+  // dossier arrives before the finding (rare), create a placeholder.
+  let card = findings[m.bn];
+  if (!card) {
+    card = document.createElement('div');
+    card.className = 'finding pending';
+    briefing.querySelector('.empty')?.remove();
+    briefing.appendChild(card);
+    findings[m.bn] = card;
+  }
+  let dossier = card.querySelector('.dossier');
+  if (!dossier) {
+    dossier = document.createElement('div');
+    dossier.className = 'dossier';
+    card.appendChild(dossier);
+  }
+
+  // Headline (templated, deterministic from skill Step H5).
+  if (m.headline) {
+    let h = card.querySelector('.headline');
+    if (!h) {
+      h = document.createElement('div');
+      h.className = 'headline';
+      card.insertBefore(h, card.querySelector('.summary') || dossier);
+    }
+    h.textContent = m.headline;
+    h.style.display = 'block';
+  }
+
+  const sections = [];
+
+  // Death-event banner
+  if (m.death_event_text) {
+    sections.push(`
+      <div class="dossier-section">
+        <div class="ds-title">Status banner</div>
+        <div class="death-banner">${escapeHtml(m.death_event_text)}</div>
+      </div>`);
+  }
+
+  // Funding events timeline
+  const events = Array.isArray(m.funding_events) ? m.funding_events : [];
+  if (events.length) {
+    const rows = events.map(ev => {
+      const yr = ev.year ?? (ev.start_date ? new Date(ev.start_date).getFullYear() : '—');
+      const amt = ev.amount_cad != null ? `$${Number(ev.amount_cad).toLocaleString(undefined, {maximumFractionDigits: 0})}` : '—';
+      const dept = ev.dept || '';
+      const prog = ev.program || '';
+      return `<div class="fe-row">
+        <span class="fe-year">${yr}</span>
+        <span class="fe-desc">${escapeHtml(prog || '(no program name)')}<span class="fe-dept">${escapeHtml(dept)}</span></span>
+        <span class="fe-amt">${amt}</span>
+      </div>`;
+    }).join('');
+    sections.push(`
+      <div class="dossier-section">
+        <div class="ds-title">Funding events (${events.length})</div>
+        <div class="funding-events">${rows}</div>
+      </div>`);
+  }
+
+  // Dependence-ratio sparkline
+  const dep = Array.isArray(m.dependence_history) ? m.dependence_history : [];
+  if (dep.length) {
+    sections.push(`
+      <div class="dossier-section">
+        <div class="ds-title">Govt-share-of-revenue (CHL 70-80% flag)</div>
+        ${renderSparkline(dep)}
+      </div>`);
+  } else {
+    sections.push(`
+      <div class="dossier-section">
+        <div class="ds-title">Govt-share-of-revenue (CHL 70-80% flag)</div>
+        <div class="dependence-empty">No govt-revenue rows in cra.govt_funding_by_charity for this BN — CHL's 70-80% flag does not apply.</div>
+      </div>`);
+  }
+
+  // Overhead snapshot
+  const oh = m.overhead_snapshot || {};
+  if (oh && oh.fiscal_year != null) {
+    const pct = oh.strict_overhead_pct != null ? Number(oh.strict_overhead_pct).toFixed(1) : '—';
+    const prog = oh.programs_cad != null ? `$${Number(oh.programs_cad).toLocaleString(undefined, {maximumFractionDigits: 0})}` : '—';
+    const ovh = oh.admin_fundraising_cad != null ? `$${Number(oh.admin_fundraising_cad).toLocaleString(undefined, {maximumFractionDigits: 0})}` : '—';
+    sections.push(`
+      <div class="dossier-section">
+        <div class="ds-title">"Did the public get anything?" — FY ${oh.fiscal_year}</div>
+        <div class="overhead-line">
+          Admin + fundraising: <span class="o-pct">${pct}%</span> of revenue
+          (${ovh} overhead vs ${prog} programs).
+        </div>
+      </div>`);
+  }
+
+  dossier.innerHTML = sections.join('');
+}
+
+function renderSparkline(rows) {
+  // rows: [{fiscal_year, govt_share_pct, total_govt_cad, revenue_cad}, ...]
+  const W = 320, H = 60, pad = 4;
+  const ys = rows.map(r => Number(r.govt_share_pct) || 0);
+  const xs = rows.map(r => Number(r.fiscal_year));
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  const yMax = Math.max(100, ...ys);
+  const sx = (v) => xMax === xMin ? W/2 : pad + (v - xMin) / (xMax - xMin) * (W - 2*pad);
+  const sy = (v) => H - pad - (v / yMax) * (H - 2*pad);
+  const pts = rows.map(r => `${sx(r.fiscal_year).toFixed(1)},${sy(Number(r.govt_share_pct)||0).toFixed(1)}`).join(' ');
+  const dots = rows.map(r => `<circle class="spark-dot" cx="${sx(r.fiscal_year)}" cy="${sy(Number(r.govt_share_pct)||0)}" r="2.5"/>`).join('');
+  const thresholdY = sy(70);
+  const lastRow = rows[rows.length - 1];
+  const lastVal = lastRow ? Number(lastRow.govt_share_pct).toFixed(1) : '—';
+  const lastFy = lastRow ? lastRow.fiscal_year : '—';
+  return `
+    <svg class="sparkline" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <line class="spark-threshold" x1="${pad}" y1="${thresholdY}" x2="${W-pad}" y2="${thresholdY}"/>
+      <text class="spark-label" x="${W-pad-2}" y="${thresholdY-2}" text-anchor="end">70%</text>
+      <polyline class="spark-line" points="${pts}"/>
+      ${dots}
+    </svg>
+    <div style="font-size:10px;color:var(--muted);margin-top:4px;">
+      ${rows.length} fiscal year(s); most recent FY ${lastFy}: ${lastVal}%.
+    </div>`;
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
 function onThinking(m) {

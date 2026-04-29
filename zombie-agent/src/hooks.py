@@ -172,8 +172,10 @@ async def inject_context_hook(
                 "  - Group CRA per-org by LEFT(bn, 9), not the 15-character "
                 "BN.\n"
                 "  - AB: filter by display_fiscal_year, not bare fiscal_year.\n"
-                "  - Exclude cra.cra_identification.designation = 'A' from "
-                "zombie candidates.\n"
+                "  - Exclude cra.cra_identification.designation IN ('A','B') "
+                "from zombie candidates (A=public foundation, B=private "
+                "foundation — both exist to distribute grants, not deliver "
+                "programs, so structurally low operating revenue).\n"
                 "  - Charity T3010 has a 6-month filing window from "
                 "fiscal_year_end."
             ),
