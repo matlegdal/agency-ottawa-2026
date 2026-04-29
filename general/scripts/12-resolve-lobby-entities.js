@@ -230,6 +230,7 @@ async function augment(client, table) {
       AND rl.status = 'matched'
       AND rl.entity_id IS NOT NULL
       AND e.id = rl.entity_id
+      AND NOT ('lobby' = ANY(e.dataset_sources))
   `, [table]);
   logC(table, 'Augmented', aug.rowCount, t0);
 }
