@@ -1,0 +1,24 @@
+{
+  "name": "ai-for-accountability-corp",
+  "version": "0.1.0",
+  "description": "Federal Corporations Registry pipeline (zombie-agent augmentation)",
+  "main": "scripts/01-migrate.js",
+  "scripts": {
+    "unzip": "node scripts/00-unzip.js",
+    "migrate": "node scripts/01-migrate.js",
+    "import": "node scripts/02-import.js",
+    "verify": "node scripts/03-verify.js",
+    "drop": "node scripts/drop.js",
+    "setup": "npm run unzip && npm run migrate && npm run import && npm run verify",
+    "reset": "npm run drop && npm run setup"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "pg": "^8.11.3",
+    "pg-copy-streams": "^7.0.0",
+    "sax": "^1.4.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
