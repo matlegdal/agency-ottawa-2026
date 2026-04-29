@@ -40,15 +40,24 @@ from src.streaming import emit
         "in place rather than duplicating."
     ),
     {
-        "entity_name": str,
-        "bn": str,
-        "total_funding_cad": float,
-        "last_known_year": int,
-        "govt_dependency_pct": float,
-        "evidence_summary": str,
-        "verifier_status": str,
-        "verifier_notes": str,
-        "sql_trail": list,
+        "type": "object",
+        "properties": {
+            "entity_name":        {"type": "string"},
+            "bn":                 {"type": "string"},
+            "total_funding_cad":  {"type": "number"},
+            "last_known_year":    {"type": "integer"},
+            "govt_dependency_pct":{"type": "number"},
+            "evidence_summary":   {"type": "string"},
+            "verifier_status":    {"type": "string"},
+            "verifier_notes":     {"type": "string"},
+            "sql_trail":          {"type": "array"},
+            "last_dept":          {"type": "string"},
+        },
+        "required": [
+            "entity_name", "bn", "total_funding_cad", "last_known_year",
+            "govt_dependency_pct", "evidence_summary",
+            "verifier_status", "verifier_notes", "sql_trail",
+        ],
     },
 )
 async def publish_finding(args: dict[str, Any]) -> dict[str, Any]:

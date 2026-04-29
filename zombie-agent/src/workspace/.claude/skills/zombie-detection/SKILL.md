@@ -585,7 +585,10 @@ AB liveness check, call `mcp__ui_bridge__publish_finding` with:
     3. one-sentence summary of the federal-funding profile (year range,
        department count).
 - `verifier_status="pending"`,
-- `sql_trail` (the labels of the queries that produced it).
+- `sql_trail` (the labels of the queries that produced it),
+- `last_dept` (optional) — the `owner_org_title` of the most recent
+  agreement for this BN from `fed.vw_agreement_current`. If you already
+  have this from Step A data in memory, pass it; otherwise omit.
 
 Publish ALL surviving candidates as `pending`, not just the top 3.
 Verification + final ranking happens in Step G.
