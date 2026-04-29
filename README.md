@@ -2,7 +2,7 @@
 
 Our entry for the **AI For Accountability Hackathon** (Agency 2026, Ottawa, April 29 2026), targeting **Challenge 1 — Zombie Recipients**: companies and nonprofits that received large amounts of Canadian public funding and then ceased operations — went bankrupt, dissolved, stopped filing, or vanished — within months of cashing the cheque.
 
-The deliverable is an **agentic system** built on the Claude Agent SDK that investigates the question end-to-end against the unified CRA + FED + AB Postgres we assembled, narrates its work to a live dashboard, paranoidly cross-checks every candidate with a verifier subagent, and emits a publishable briefing the audience can re-derive from SQL.
+A Claude Agent SDK system that investigates Challenge 1 end-to-end against the provided CRA/FED/AB Postgres, which we extended with corporate-registry status (CORP) and Public Accounts line items (PA) to harden the death signal beyond CRA filing gaps. A verifier subagent independently re-queries every candidate and returns VERIFIED / REFUTED / AMBIGUOUS, triggering up to three rebuttal queries before the orchestrator publishes. Every dollar, date, and ratio on the briefing traces to a labelled SQL step in the same session.
 
 The agent lives in [`zombie-agent/`](zombie-agent/). The data backbone it queries lives in [`CRA/`](CRA/), [`FED/`](FED/), [`AB/`](AB/), and [`general/`](general/).
 
@@ -48,7 +48,7 @@ Hooks → side-effecting telemetry. Custom tool → structured semantic outputs.
 
 ### Components
 
-- **Orchestrator** — Claude Sonnet 4.6 via the Claude Agent SDK. System prompt in `src/system_prompt.py`. Runs labelled SQL, publishes findings, delegates to the verifier, defends or revises on challenge.
+- **Orchestrator** — Claude Opus 4.7 via the Claude Agent SDK. System prompt in `src/system_prompt.py`. Runs labelled SQL, publishes findings, delegates to the verifier, defends or revises on challenge.
 - **Verifier subagent** — `AgentDefinition` in `src/verifier.py`. Independent SQL access, returns VERIFIED / REFUTED / AMBIGUOUS per candidate plus a JSON verdict block. Refutes designation A / B foundations and entities whose T3010 filing window is still open — those rejections are correct, not failures.
 - **Skills** in `src/workspace/.claude/skills/` — load on demand:
   - `accountability-investigator` — master playbook for any accountability question.
@@ -100,6 +100,13 @@ The agent's read-only Postgres MCP points at a hackathon database that unifies f
 | [`general/`](general/) | `general` | ~10.5M | Cross-dataset entity-resolution pipeline (deterministic + Splink + LLM verdict) producing `entity_golden_records`. |
 
 Auxiliary modules also exist (`CHARSTAT/`, `CORP/`, `LOBBY/`, `PA/`) feeding the addendum signals described in `plans/zombie_agent_*_addendum.md` — corporate-registry status, lobbying-registry presence, and web-presence checks that further harden the death signal.
+
+> **Data we added on top of the provided dataset.** The organizers shipped CRA, FED, AB, and `general` (entity resolution). On top of that we ingested two additional Canadian open-data sources to harden the zombie death-signal — only these two made it into the database in time for the demo:
+>
+> - **`CORP/`** — federal + provincial corporate-registry status (active / dissolved / struck), so a recipient that disappears from the registry shortly after a federal cheque becomes a first-party death signal independent of the CRA filing window.
+> - **`PA/`** — Public Accounts of Canada line-item disclosures, which let us cross-check that a "zombie" recipient really did stop receiving money in the years following the dissolution event (not merely that the FED publisher stopped reporting it).
+>
+> The `LOBBY/` (lobbying registry) and `CHARSTAT/` (web-presence checks) modules were scaffolded from the corresponding addendum plans but did not finish ingestion before the demo cutoff and are not wired into the agent's queries.
 
 Each module is a self-contained Node project with its own `package.json`, `lib/db.js`, and `CLAUDE.md`. **Read the per-module `CLAUDE.md` before working in `CRA/`, `FED/`, or `AB/`** — they document the analytical methodology and the dataset-specific gotchas that the `data-quirks` skill encodes for the agent.
 
