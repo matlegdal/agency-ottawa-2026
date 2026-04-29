@@ -4,11 +4,12 @@
   "description": "Lobbying registry pipeline for the AI For Accountability Hackathon (zombie-agent augmentation)",
   "main": "scripts/01-migrate.js",
   "scripts": {
+    "unzip": "node scripts/00-unzip.js",
     "migrate": "node scripts/01-migrate.js",
     "import": "node scripts/02-import.js",
     "verify": "node scripts/03-verify.js",
     "drop": "node scripts/drop.js",
-    "setup": "npm run migrate && npm run import && npm run verify",
+    "setup": "npm run unzip && npm run migrate && npm run import && npm run verify",
     "reset": "npm run drop && npm run setup"
   },
   "dependencies": {

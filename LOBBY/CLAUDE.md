@@ -32,13 +32,16 @@ The other 14 CSVs in the source bundles (subject matter, beneficiaries, in-house
 ```bash
 cd LOBBY
 npm install
+npm run setup      # unzip → migrate → import → verify (~15s on M-series)
+# or run the steps individually:
+npm run unzip      # extract data/raw/*.zip into data/csv/
 npm run migrate    # create schema + tables
-npm run import     # bulk COPY all four CSVs (~13s on M-series)
+npm run import     # bulk COPY all four CSVs
 npm run verify     # row counts + sample queries
 npm run reset      # drop + setup
 ```
 
-**Prereq:** download the two zips (see Source above) and unzip into `LOBBY/data/csv/` before running `import`. The import script transforms the literal `"null"` field convention to SQL NULL inline during streaming.
+**Prereq:** drop the two OCL zips into `LOBBY/data/raw/` (`registrations_enregistrements_ocl_cal.zip` and `communications_ocl_cal.zip`). The `setup` script unzips, migrates, imports, and verifies in one shot. The import script transforms the literal `"null"` field convention to SQL NULL inline during streaming.
 
 ## Key fields for the zombie agent
 
