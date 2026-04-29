@@ -19,6 +19,7 @@ UI can render subagent activity nested under the verifier badge.
 """
 
 import logging
+import shutil
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -99,10 +100,26 @@ _TOOL_DISPLAY: dict[str, tuple[str, str]] = {
 def build_options() -> ClaudeAgentOptions:
     """Build a fresh options object. Called once per run so each run gets a
     clean MCP server lifecycle."""
+    # Resolve the Claude Code CLI binary the SDK should drive. The SDK
+    # bundles a CLI under .venv/.../claude_agent_sdk/_bundled/claude, but
+    # for this project that bundled CLI is too old for Opus 4.7 — it
+    # always sends `thinking={"type":"enabled"}` which Opus 4.7 rejects
+    # with "Use thinking.type.adaptive and output_config.effort". We
+    # prefer the system-installed `claude` from Homebrew when present
+    # since it's kept on the latest Claude Code release; fall back to
+    # the bundled one so other dev machines still work.
+    system_cli = shutil.which("claude")
+
     return ClaudeAgentOptions(
         cwd=str(WORKSPACE_DIR),
         setting_sources=["project"],  # required to load .claude/skills/
         model="claude-opus-4-7",
+        cli_path=system_cli,  # None → SDK falls back to bundled CLI
+        # Opus 4.7 only accepts the adaptive thinking shape; the SDK
+        # passes this through as `--max-thinking-tokens 32000`, which a
+        # recent enough Claude Code CLI maps onto `thinking.type=adaptive`.
+        thinking={"type": "adaptive"},
+        effort="high",
         system_prompt=SYSTEM_PROMPT,
         allowed_tools=_ORCHESTRATOR_TOOLS,
         mcp_servers={
