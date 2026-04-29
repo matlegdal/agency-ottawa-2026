@@ -245,6 +245,28 @@ def _verified_card(finding: dict, dossier: dict | None) -> str:
                 )
             )
 
+    corp_timeline_block = ""
+    pa_payments_block = ""
+    if dossier:
+        ct = _coerce_json(dossier.get("corp_timeline") or [], list)
+        if ct:
+            ct_rows = [
+                [_e(r.get("event_date", "")), _e(r.get("kind", "")), _e(r.get("label", ""))]
+                for r in ct
+            ]
+            corp_timeline_block = _sub_header("Corp Registry Timeline") + _table(
+                ["Date", "Kind", "Event"], ct_rows
+            )
+        pa = _coerce_json(dossier.get("pa_payments") or [], list)
+        if pa:
+            pa_rows = [
+                [_e(str(r.get("fiscal_year_end", ""))), _e(r.get("department_name", "")), _fmt_cad(r.get("paid_cad"))]
+                for r in pa
+            ]
+            pa_payments_block = _sub_header("Public Accounts Payments") + _table(
+                ["Fiscal Year", "Department", "Paid (CAD)"], pa_rows
+            )
+
     combined_trail = sql_trail_dossier + [
         s for s in sql_trail_finding if s not in sql_trail_dossier
     ]
@@ -258,6 +280,51 @@ def _verified_card(finding: dict, dossier: dict | None) -> str:
             if headline else ""
         )
     )
+    # CORP registry chip
+    corp_code  = finding.get("corp_status_code")
+    corp_label = _e(finding.get("corp_status_label") or "")
+    corp_diss  = _e(finding.get("corp_dissolution_date") or finding.get("corp_status_date") or "")
+    corp_chip  = ""
+    if corp_code is not None:
+        if corp_code == 11:
+            corp_chip = (
+                f'<span style="background:#FEE2E2;color:#DC2626;padding:1px 7px;'
+                f'border-radius:4px;font-size:10px;font-weight:700;">'
+                f'✗ CORP Dissolved{(" · " + corp_diss[:7]) if corp_diss else ""}</span>'
+            )
+        elif corp_code == 3:
+            corp_chip = (
+                f'<span style="background:#FEF3C7;color:#92400E;padding:1px 7px;'
+                f'border-radius:4px;font-size:10px;font-weight:700;">'
+                f'! CORP Dissolution Pending</span>'
+            )
+        elif corp_code == 1:
+            corp_chip = (
+                f'<span style="background:#D1FAE5;color:#047857;padding:1px 7px;'
+                f'border-radius:4px;font-size:10px;font-weight:700;">'
+                f'✓ CORP Active</span>'
+            )
+        elif corp_code == 9:
+            corp_chip = (
+                f'<span style="background:#EDE9FE;color:#5B21B6;padding:1px 7px;'
+                f'border-radius:4px;font-size:10px;font-weight:700;">'
+                f'! CORP Amalgamated</span>'
+            )
+
+    # PA audited-cash chip
+    pa_yr   = finding.get("pa_last_year")
+    pa_paid = finding.get("pa_total_paid_cad")
+    pa_chip = ""
+    if pa_yr is not None or pa_paid is not None:
+        pa_amt_str = ""
+        if pa_paid is not None:
+            pa_amt_str = f' ${pa_paid/1e6:.2f}M' if pa_paid >= 1_000_000 else f' ${pa_paid:,}'
+        pa_chip = (
+            f'<span style="background:#EFF6FF;color:#1D4ED8;padding:1px 7px;'
+            f'border-radius:4px;font-size:10px;font-weight:700;">'
+            f'PA{pa_amt_str}{(" · " + str(pa_yr)) if pa_yr else ""}</span>'
+        )
+
     meta_line = (
         f'<div style="font-size:12px;color:#6B7280;margin-bottom:12px;display:flex;'
         f'align-items:center;gap:12px;flex-wrap:wrap;">'
@@ -265,7 +332,10 @@ def _verified_card(finding: dict, dossier: dict | None) -> str:
         f'{"<span>Last active: " + last_year + "</span>" if last_year else ""}'
         f'<span style="font-weight:700;color:#DC2626;">{funding}</span>'
         f'<span>Govt dependency: {dep_pct}</span>'
-        f"{_pill(status)}</div>"
+        f"{_pill(status)}"
+        f"{corp_chip}"
+        f"{pa_chip}"
+        f"</div>"
     )
     death_line = (
         f'<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:6px;'
@@ -299,6 +369,8 @@ def _verified_card(finding: dict, dossier: dict | None) -> str:
         + funding_table
         + dep_table
         + overhead_block
+        + corp_timeline_block
+        + pa_payments_block
         + _reasoning_chain(combined_trail)
         + _BANKRUPTCY_DISCLOSURE
         + "</div>"
