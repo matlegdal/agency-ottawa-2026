@@ -1,0 +1,30 @@
+LOBBY/.gitignore
+  h_fee09a067fd833 1
+challenges.md
+  h_fee09a067fd833 15,19,23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "2da6771ea3475945cba540a9979c17e046554946",
+  "prompts": {
+    "28f87edc23e64bc1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "799948d2-73f7-476e-a3fa-fcb825869e71",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mathieu Léger-Dalcourt",
+      "messages": [],
+      "total_additions": 1786,
+      "total_deletions": 58,
+      "accepted_lines": 893,
+      "overriden_lines": 5
+    }
+  },
+  "humans": {
+    "h_fee09a067fd833": {
+      "author": "Mathieu Léger-Dalcourt"
+    }
+  }
+}
