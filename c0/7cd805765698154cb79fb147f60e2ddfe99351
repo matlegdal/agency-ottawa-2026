@@ -1,0 +1,58 @@
+CORP/.gitignore
+  28f87edc23e64bc1 1-6
+CORP/scripts/drop.js
+  28f87edc23e64bc1 1-20
+CORP/CLAUDE.md
+  28f87edc23e64bc1 1-127
+CORP/scripts/00-unzip.js
+  28f87edc23e64bc1 1-32
+CORP/.env.example
+  28f87edc23e64bc1 1
+CORP/scripts/01-migrate.js
+  28f87edc23e64bc1 1-20
+CORP/.env
+  28f87edc23e64bc1 1
+CORP/lib/db.js
+  28f87edc23e64bc1 1-46
+CORP/scripts/02-import.js
+  d5c19ad1d966640b 2-443
+CORP/package.json
+  28f87edc23e64bc1 1-24
+CORP/scripts/03-verify.js
+  28f87edc23e64bc1 1-81
+CORP/sql/01-schema.sql
+  28f87edc23e64bc1 1-128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "c07cd805765698154cb79fb147f60e2ddfe99351",
+  "prompts": {
+    "28f87edc23e64bc1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "799948d2-73f7-476e-a3fa-fcb825869e71",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mathieu Léger-Dalcourt",
+      "messages": [],
+      "total_additions": 14447805,
+      "total_deletions": 615,
+      "accepted_lines": 14447801,
+      "overriden_lines": 0
+    },
+    "d5c19ad1d966640b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40a5e071-7754-48cc-8eb5-83a79fe348b3",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mathieu Léger-Dalcourt",
+      "messages": [],
+      "total_additions": 46662,
+      "total_deletions": 307,
+      "accepted_lines": 46662,
+      "overriden_lines": 0
+    }
+  }
+}
