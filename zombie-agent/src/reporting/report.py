@@ -53,13 +53,22 @@ _STATUS_COLOURS = {
 }
 
 
+_STATUS_DISPLAY = {
+    "verified": "AI Verified",
+    "challenged": "Challenged",
+    "pending": "Pending",
+    "refuted": "Refuted",
+}
+
+
 def _pill(status: str) -> str:
     border_c, bg, fg = _STATUS_COLOURS.get(status, ("#9CA3AF", "#F3F4F6", "#374151"))
+    label = _STATUS_DISPLAY.get(status, status.capitalize())
     return (
         f'<span style="display:inline-block;padding:2px 10px;border-radius:999px;'
         f"font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;"
         f"background:{bg};color:{fg};border:1px solid {border_c}20;"
-        f'">{_e(status)}</span>'
+        f'">{_e(label)}</span>'
     )
 
 
@@ -214,6 +223,7 @@ def _verified_card(finding: dict, dossier: dict | None) -> str:
             )
 
         dh = _coerce_json(dossier.get("dependence_history") or [], list)
+        dep_table = _sub_header("Govt-share of revenue (CHL 70-80% flag)")
         if dh:
             dh_rows = [
                 [
@@ -224,25 +234,52 @@ def _verified_card(finding: dict, dossier: dict | None) -> str:
                 ]
                 for r in dh
             ]
-            dep_table = _sub_header("Government Dependency History") + _table(
+            dep_table += _table(
                 ["Fiscal Year", "Govt Share %", "Govt CAD", "Total Revenue"], dh_rows
+            )
+        else:
+            dep_table += (
+                '<p style="font-size:12px;color:#9CA3AF;font-style:italic;margin-bottom:4px;">'
+                "No govt-revenue rows in cra.govt_funding_by_charity for this BN "
+                "— CHL’s 70-80% flag does not apply.</p>"
             )
 
         oh = _coerce_json(dossier.get("overhead_snapshot") or {}, dict)
-        if oh:
+        if oh and oh.get("fiscal_year") is not None:
             overhead_block = (
-                _sub_header("Overhead Snapshot")
+                _sub_header(f"Did the public get anything? — FY {oh.get('fiscal_year', '')}")
                 + _table(
-                    ["Fiscal Year", "Overhead %", "Programs CAD", "Admin & Fundraising"],
+                    ["Overhead %", "Programs CAD", "Admin & Fundraising"],
                     [
                         [
-                            oh.get("fiscal_year", ""),
                             _fmt_pct(oh.get("strict_overhead_pct")),
                             _fmt_cad(oh.get("programs_cad")),
                             _fmt_cad(oh.get("admin_fundraising_cad")),
                         ]
                     ],
                 )
+            )
+
+    corp_timeline_block = ""
+    pa_payments_block = ""
+    if dossier:
+        ct = _coerce_json(dossier.get("corp_timeline") or [], list)
+        if ct:
+            ct_rows = [
+                [_e(r.get("event_date", "")), _e(r.get("kind", "")), _e(r.get("label", ""))]
+                for r in ct
+            ]
+            corp_timeline_block = _sub_header("Corp Registry Timeline") + _table(
+                ["Date", "Kind", "Event"], ct_rows
+            )
+        pa = _coerce_json(dossier.get("pa_payments") or [], list)
+        if pa:
+            pa_rows = [
+                [_e(str(r.get("fiscal_year_end", ""))), _e(r.get("department_name", "")), _fmt_cad(r.get("paid_cad"))]
+                for r in pa
+            ]
+            pa_payments_block = _sub_header("Public Accounts Payments") + _table(
+                ["Fiscal Year", "Department", "Paid (CAD)"], pa_rows
             )
 
     combined_trail = sql_trail_dossier + [
@@ -258,6 +295,51 @@ def _verified_card(finding: dict, dossier: dict | None) -> str:
             if headline else ""
         )
     )
+    # CORP registry chip
+    corp_code  = finding.get("corp_status_code")
+    corp_label = _e(finding.get("corp_status_label") or "")
+    corp_diss  = _e(finding.get("corp_dissolution_date") or finding.get("corp_status_date") or "")
+    corp_chip  = ""
+    if corp_code is not None:
+        if corp_code == 11:
+            corp_chip = (
+                f'<span style="background:#FEE2E2;color:#DC2626;padding:1px 7px;'
+                f'border-radius:4px;font-size:10px;font-weight:700;">'
+                f'✗ CORP Dissolved{(" · " + corp_diss[:7]) if corp_diss else ""}</span>'
+            )
+        elif corp_code == 3:
+            corp_chip = (
+                f'<span style="background:#FEF3C7;color:#92400E;padding:1px 7px;'
+                f'border-radius:4px;font-size:10px;font-weight:700;">'
+                f'! CORP Dissolution Pending</span>'
+            )
+        elif corp_code == 1:
+            corp_chip = (
+                f'<span style="background:#D1FAE5;color:#047857;padding:1px 7px;'
+                f'border-radius:4px;font-size:10px;font-weight:700;">'
+                f'✓ CORP Active</span>'
+            )
+        elif corp_code == 9:
+            corp_chip = (
+                f'<span style="background:#EDE9FE;color:#5B21B6;padding:1px 7px;'
+                f'border-radius:4px;font-size:10px;font-weight:700;">'
+                f'! CORP Amalgamated</span>'
+            )
+
+    # PA audited-cash chip
+    pa_yr   = finding.get("pa_last_year")
+    pa_paid = finding.get("pa_total_paid_cad")
+    pa_chip = ""
+    if pa_yr is not None or pa_paid is not None:
+        pa_amt_str = ""
+        if pa_paid is not None:
+            pa_amt_str = f' ${pa_paid/1e6:.2f}M' if pa_paid >= 1_000_000 else f' ${pa_paid:,}'
+        pa_chip = (
+            f'<span style="background:#EFF6FF;color:#1D4ED8;padding:1px 7px;'
+            f'border-radius:4px;font-size:10px;font-weight:700;">'
+            f'PA{pa_amt_str}{(" · " + str(pa_yr)) if pa_yr else ""}</span>'
+        )
+
     meta_line = (
         f'<div style="font-size:12px;color:#6B7280;margin-bottom:12px;display:flex;'
         f'align-items:center;gap:12px;flex-wrap:wrap;">'
@@ -265,7 +347,10 @@ def _verified_card(finding: dict, dossier: dict | None) -> str:
         f'{"<span>Last active: " + last_year + "</span>" if last_year else ""}'
         f'<span style="font-weight:700;color:#DC2626;">{funding}</span>'
         f'<span>Govt dependency: {dep_pct}</span>'
-        f"{_pill(status)}</div>"
+        f"{_pill(status)}"
+        f"{corp_chip}"
+        f"{pa_chip}"
+        f"</div>"
     )
     death_line = (
         f'<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:6px;'
@@ -299,6 +384,8 @@ def _verified_card(finding: dict, dossier: dict | None) -> str:
         + funding_table
         + dep_table
         + overhead_block
+        + corp_timeline_block
+        + pa_payments_block
         + _reasoning_chain(combined_trail)
         + _BANKRUPTCY_DISCLOSURE
         + "</div>"
@@ -445,7 +532,7 @@ def _summary_bar(findings: dict) -> str:
                 f'font-size:12px;font-weight:500;color:#111827;">'
                 f'<span style="width:8px;height:8px;border-radius:50%;background:{colour};'
                 f'display:inline-block;"></span>'
-                f"{counts[st]} {st.capitalize()}</span>"
+                f"{counts[st]} {_STATUS_DISPLAY.get(st, st.capitalize())}</span>"
             )
 
     return (
@@ -491,10 +578,10 @@ def _executive_brief(findings: dict, universe: dict) -> str:
     lead_verb = "lead was" if n_verified == 1 else "leads were"
     verified_line = (
         f"<strong>{n_verified} {lead_verb} independently "
-        f"verified</strong>, representing a combined {_fmt_cad(verified_funding)} in committed "
+        f"AI verified</strong>, representing a combined {_fmt_cad(verified_funding)} in committed "
         f"federal funding to organizations that no longer appear active on the public record."
         if n_verified > 0
-        else "No leads have been independently verified yet."
+        else "No leads have been AI verified yet."
     )
 
     cand_verb = "candidate was" if n_refuted == 1 else "candidates were"
@@ -537,7 +624,7 @@ def _methodology_box() -> str:
         "year-end to file. The 2024 filing window may still be open — entities in that "
         "window are excluded from the candidate list and will appear as Refuted if surfaced.<br><br>"
         "<strong>Status meanings:</strong> "
-        "<em>Verified</em> — both the primary investigator and the independent verifier "
+        "<em>AI Verified</em> — both the primary investigator and the independent verifier "
         "confirmed the zombie signal. "
         "<em>Challenged</em> — initially flagged, contested by the verifier, then "
         "re-examined and re-confirmed. "
@@ -646,7 +733,7 @@ p{{font-size:13px;}}
     )
     if not verified_html:
         verified_html = (
-            '<p style="font-size:13px;color:#9CA3AF;font-style:italic;">No verified leads.</p>'
+            '<p style="font-size:13px;color:#9CA3AF;font-style:italic;">No AI verified leads.</p>'
         )
 
     # ── Challenged cards ─────────────────────────────────────────────
@@ -758,7 +845,7 @@ body {{
   {_methodology_box()}
 
   <!-- Verified leads -->
-  {_section_header("Verified Audit Leads")}
+  {_section_header("AI Verified Audit Leads")}
   {verified_html}
 
   {challenged_html}

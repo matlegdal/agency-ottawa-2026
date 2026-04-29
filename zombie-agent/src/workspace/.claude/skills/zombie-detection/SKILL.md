@@ -163,14 +163,25 @@ WITH exposure AS (
 charity AS (
   -- T3010 registration state per BN root. NULL via LEFT JOIN for
   -- non-CRA-registered recipients (companies, foreign entities, etc.).
-  -- last_fpe = the actual fiscal-period-end date of the most recent
-  -- filing, used by the 12-month-proximity column below.
+  -- NOTE: cra.cra_identification has no `fpe` column (v3 baseline bug);
+  -- the actual fiscal-period-end date lives on cra.cra_financial_general
+  -- and is sourced via the separate `charity_fpe` CTE below.
   SELECT LEFT(bn,9) AS bn_root,
          MAX(fiscal_year) AS last_fy,
-         MAX(fpe)         AS last_fpe,
          MAX(designation) AS designation
   FROM cra.cra_identification
   GROUP BY 1
+),
+charity_fpe AS (
+  -- last_fpe = the actual fiscal-period-end date of the most recent
+  -- T3010 filing for this BN, used by the 12-month-proximity column
+  -- below. Sourced from cra_financial_general (which carries fpe);
+  -- cra_identification only has integer fiscal_year, not the day-precise
+  -- fpe needed for the months_grant_to_death_signal calculation.
+  SELECT LEFT(bn, 9) AS bn_root,
+         MAX(fpe)    AS last_fpe
+  FROM cra.cra_financial_general
+  GROUP BY LEFT(bn, 9)
 ),
 cra_self_dissolved AS (
   -- Charities that affirmatively answered "Yes" to T3010 line A2
@@ -197,7 +208,10 @@ ab_dissolved AS (
   JOIN general.entity_source_links esl
     ON esl.source_schema = 'ab'
    AND esl.source_table  = 'ab_non_profit'
-   AND (esl.source_pk->>'id')::int = np.id
+   -- ab_non_profit.id is UUID locally; cast the JSONB pk-key string to
+   -- uuid (NOT int) to match. ab_grants.id below is INTEGER, hence the
+   -- different cast in that JOIN.
+   AND (esl.source_pk->>'id')::uuid = np.id
   JOIN general.entity_golden_records egr ON egr.id = esl.entity_id
   WHERE np.status ILIKE '%dissolved%'
      OR np.status ILIKE '%struck%'
@@ -205,6 +219,12 @@ ab_dissolved AS (
      OR np.status ILIKE '%revoked%'
   GROUP BY egr.bn_root
 )
+-- CORP and PA columns below (cc.*, pt.*) are attached as evidence for
+-- the verifier and the dossier panel; they DO NOT participate in
+-- candidate selection or ordering. The candidate set and its sort order
+-- are governed solely by the existing gates and `total_committed_cad
+-- DESC` (see system_prompt.py determinism contract — same DB state must
+-- produce the same candidate list and ordering every run).
 SELECT
   e.bn_root,
   e.recipient_name,
@@ -213,7 +233,7 @@ SELECT
   e.latest_end_date,
   e.n_agreements,
   c.last_fy      AS last_t3010_year,
-  c.last_fpe     AS last_t3010_fpe,
+  cf.last_fpe    AS last_t3010_fpe,
   c.designation,
   d.ab_status    AS ab_dissolution_status,
   s.dissolution_fpe AS t3010_self_dissolution_fpe,
@@ -248,15 +268,56 @@ SELECT
     WHEN s.dissolution_fpe IS NOT NULL AND e.latest_end_date IS NOT NULL THEN
       (EXTRACT(YEAR  FROM age(s.dissolution_fpe, e.latest_end_date))::int * 12
      + EXTRACT(MONTH FROM age(s.dissolution_fpe, e.latest_end_date))::int)
-    WHEN c.last_fpe IS NOT NULL AND c.last_fy <= 2022 AND e.latest_end_date IS NOT NULL THEN
-      (EXTRACT(YEAR  FROM age(c.last_fpe + INTERVAL '12 months', e.latest_end_date))::int * 12
-     + EXTRACT(MONTH FROM age(c.last_fpe + INTERVAL '12 months', e.latest_end_date))::int)
+    WHEN cf.last_fpe IS NOT NULL AND c.last_fy <= 2022 AND e.latest_end_date IS NOT NULL THEN
+      (EXTRACT(YEAR  FROM age(cf.last_fpe + INTERVAL '12 months', e.latest_end_date))::int * 12
+     + EXTRACT(MONTH FROM age(cf.last_fpe + INTERVAL '12 months', e.latest_end_date))::int)
     ELSE NULL
-  END AS months_grant_to_death_signal
+  END AS months_grant_to_death_signal,
+  -- CORP+PA pre-enrich (addendum §5.2). Evidence only — see banner above
+  -- the SELECT for the determinism contract. NULL when no match.
+  cc.corporation_id           AS corp_corporation_id,
+  cc.current_status_code      AS corp_status_code,
+  cc.current_status_label     AS corp_status_label,
+  cc.current_status_date::date AS corp_status_date,
+  cc.dissolution_date::date   AS corp_dissolution_date,
+  cc.last_annual_return_year  AS corp_last_filing_year,
+  pt.last_year                AS pa_last_year,
+  pt.total_paid::bigint       AS pa_total_paid_cad
 FROM exposure e
-LEFT JOIN charity            c ON c.bn_root = e.bn_root
-LEFT JOIN ab_dissolved       d ON d.bn_root = e.bn_root
-LEFT JOIN cra_self_dissolved s ON s.bn_root = e.bn_root
+LEFT JOIN charity            c  ON c.bn_root  = e.bn_root
+LEFT JOIN charity_fpe        cf ON cf.bn_root = e.bn_root
+LEFT JOIN ab_dissolved       d  ON d.bn_root  = e.bn_root
+LEFT JOIN cra_self_dissolved s  ON s.bn_root  = e.bn_root
+-- CORP: federal corporate registry (status, dissolution_date, last
+-- annual return). Local-only schema. business_number is the 9-digit BN
+-- root, matching e.bn_root directly. NULL row for non-federally-
+-- incorporated recipients (provincial corps, foreign entities, etc.) is
+-- normal and must NOT trigger any gate.
+--
+-- BN reuse: ~16K of ~1.4M BN'd corps share a BN with at least one other
+-- corp (Kinectrics-shape). A naive JOIN multiplies rows. We pick the
+-- single most-recent CORP record per BN deterministically via
+-- DISTINCT ON so Step A's row count and ordering remain stable. The
+-- verifier still runs CHECK 11's temporal gate to reject pre-grant
+-- dissolutions that survive this pre-enrich step.
+LEFT JOIN LATERAL (
+  SELECT corporation_id, current_status_code, current_status_label,
+         current_status_date, dissolution_date, last_annual_return_year
+  FROM corp.corp_corporations
+  WHERE business_number = e.bn_root
+  ORDER BY current_status_date DESC NULLS LAST,
+           corporation_id DESC
+  LIMIT 1
+) cc ON TRUE
+-- PA: audited Public Accounts recipient totals. Name-based match against
+-- pa.vw_recipient_totals.recipient_name_norm — same regex PA used on
+-- load (see PA/scripts/02-import.js). NULL for recipients below the PA
+-- $100K threshold or whose name doesn't normalize identically; that is
+-- evidence for CHECK 12, not a Step A gate.
+LEFT JOIN pa.vw_recipient_totals pt
+       ON pt.recipient_name_norm = lower(
+            regexp_replace(regexp_replace(coalesce(e.recipient_name, ''),
+              '^the\s+', '', 'i'), '[^a-z0-9 ]+', ' ', 'g'))
 WHERE
   -- Foundations excluded: A=public, B=private; both have low operating
   -- revenue by design and CHL's 70-80% rule does not interpret cleanly.
@@ -712,6 +773,67 @@ Step A:
 
 Pass as `death_event_text`.
 
+### H4a — Federal corporate registry timeline (CORP)
+
+Run this query ONLY when Step A's pre-enrich returned a non-null
+`corp_status_code` (and therefore `corp_corporation_id`) for this BN.
+The dossier panel renders the result as a vertical event list; if Step A
+returned no CORP match, skip the query and pass `corp_timeline=[]` to
+`publish_dossier`. CORP is a local-only schema and is silent for many
+real recipients (provincially-incorporated charities, foreign entities,
+sole proprietorships) — empty `corp_timeline` is normal, not a finding.
+
+```sql
+-- Step H4a: corp registry timeline (status + name history)
+-- $1 = corp_corporation_id from Step A's pre-enriched row.
+SELECT 'status'::text       AS kind,
+       status_label          AS label,
+       effective_date::date  AS event_date,
+       is_current
+  FROM corp.corp_status_history
+ WHERE corporation_id = $1
+UNION ALL
+SELECT 'name', name, effective_date::date, is_current
+  FROM corp.corp_name_history
+ WHERE corporation_id = $1
+ ORDER BY event_date DESC, kind;
+```
+
+Pass the rows as `corp_timeline`. Each row is
+`{kind, label, event_date, is_current}`. The dossier UI highlights any
+status row whose label is "Dissolved" in red and renders the rest as
+gray dots on a timeline.
+
+### H4b — Audited Public Accounts cash trajectory (PA)
+
+Run this query ONLY when Step A's pre-enrich returned a non-null
+`pa_last_year` for this BN. PA is a local-only schema and matches by
+normalized name; an empty result is informative on its own (CHECK 12 in
+the verifier may have already converted the absence into a VERIFIED
+verdict). When Step A returned nothing, skip the query and pass
+`pa_payments=[]`.
+
+```sql
+-- Step H4b: per-fiscal-year PA payments (recipient-detail rows only)
+-- $1 = recipient_name_norm: lower(regexp_replace(regexp_replace(
+--      e.recipient_name, '^the\s+', '', 'i'),
+--      '[^a-z0-9 ]+', ' ', 'g')).
+SELECT fiscal_year_end,
+       department_name,
+       aggregate_payments::bigint AS paid_cad
+  FROM pa.transfer_payments
+ WHERE recipient_name_norm        = $1
+   AND recipient_name_location IS NOT NULL
+ ORDER BY fiscal_year_end;
+```
+
+Pass the rows as `pa_payments`. Each row is
+`{fiscal_year_end, department_name, paid_cad}`. The dossier UI renders a
+6-bar sparkline (FY 2020 → 2025), bar height proportional to `paid_cad`,
+empty/missing FYs styled gray. The visual contrast between an Active FED
+agreement value and an all-gray PA row is the dossier's punchline for
+PA-empty cases.
+
 ### H5 — Templated headline (DETERMINISTIC, NOT LLM-AUTHORED)
 
 Build the headline as a Python format string from the values above.
@@ -758,13 +880,22 @@ mcp__ui_bridge__publish_dossier(
   dependence_history=<H2 rows>,
   overhead_snapshot=<H3 dict or {}>,
   death_event_text=<H4 string>,
-  sql_trail=["Step H1: ...", "Step H2: ...", "Step H3: ..."]
+  corp_timeline=<H4a rows or []>,         # OPTIONAL — pass [] when Step A
+                                          # returned no CORP match.
+  pa_payments=<H4b rows or []>,           # OPTIONAL — pass [] when Step A
+                                          # returned no PA match.
+  sql_trail=["Step H1: ...", "Step H2: ...", "Step H3: ...",
+             "Step H4a: ..."  if H4a ran else omitted,
+             "Step H4b: ..."  if H4b ran else omitted]
 )
 ```
 
 The UI attaches the dossier to the existing finding card (matched by
 `bn`). Refuted and ambiguous candidates do NOT get a dossier; only
-the verified ones become auditable from the briefing panel.
+the verified ones become auditable from the briefing panel. The CORP
+and PA sub-views are additive: when both are absent the dossier looks
+exactly like the v3 baseline; when present they appear below the
+overhead snapshot as a registry timeline + audited-cash sparkline.
 
 # Pitfalls
 

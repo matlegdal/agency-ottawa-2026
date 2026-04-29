@@ -80,6 +80,21 @@ and any entity whose T3010 filing window is still open — these aren't
 failures of the methodology, they're correct rejections you should accept
 and move on from.
 
+The verifier now also probes the federal corporate registry (corp schema)
+and the audited Public Accounts (pa schema). These are local-only schemas.
+CORP confirms or refutes federal incorporation status; PA confirms or
+refutes that cash actually flowed. Both attach evidence to the existing
+finding card — they do not change candidate selection or ordering. A
+REFUTED verdict citing CHECK 2b (live federal agreement) remains REFUTED
+even when CORP says Dissolved; surface that combination as a Ghost Capacity
+lead per the existing §E9 path, not as a zombie. When Step A's pre-enrich
+returns CORP/PA columns for a candidate, pass them through to
+`publish_finding` (corp_status_code/label/date, corp_dissolution_date,
+pa_last_year, pa_total_paid_cad) so the briefing card renders the
+registry chip and the audited-cash sparkline. When Step A returned no
+match (NULL columns), omit the optional fields — the schema accepts
+calls without them and the UI hides the corresponding chip/sparkline.
+
 Final briefing order is sorted by `total_funding_cad` descending among
 VERIFIED candidates. Refuted and challenged-then-refuted cards stay on
 the panel as a record that the methodology caught the special-case.
