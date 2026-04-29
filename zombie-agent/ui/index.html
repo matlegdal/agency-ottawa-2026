@@ -9,10 +9,13 @@
       --bg: #0e1116;
       --panel: #161a22;
       --panel-2: #1c2230;
+      --panel-3: #0b0f15;
       --line: #2a3142;
+      --line-soft: #1f2533;
       --fg: #e6edf3;
       --muted: #8b95a7;
       --accent: #4cc4ff;
+      --accent-soft: rgba(76,196,255,.12);
       --good: #3fb985;
       --warn: #f0b54a;
       --bad: #d96b6b;
@@ -20,6 +23,7 @@
       --challenged: #c984e0;
       --verified: #3fb985;
       --refuted: #5b6478;
+      --subagent: #c984e0;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -27,23 +31,151 @@
     section { padding: 18px; overflow-y: auto; border-right: 1px solid var(--line); background: var(--panel); }
     section:last-child { border-right: 0; background: var(--panel-2); }
     h2 { margin: 0 0 12px 0; font-size: 13px; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; font-weight: 600; }
-    textarea { width: 100%; height: 130px; padding: 10px; background: #0b0f15; color: var(--fg); border: 1px solid var(--line); border-radius: 8px; font: inherit; resize: vertical; }
+    h3 { margin: 18px 0 8px 0; font-size: 11px; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; font-weight: 600; }
+    textarea { width: 100%; height: 130px; padding: 10px; background: var(--panel-3); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; font: inherit; resize: vertical; }
     button { margin-top: 10px; padding: 9px 14px; background: var(--accent); color: #04141f; border: 0; border-radius: 8px; font-weight: 600; cursor: pointer; }
     button:disabled { background: #2a3142; color: var(--muted); cursor: not-allowed; }
+    button.secondary { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+    button.secondary:hover:not(:disabled) { color: var(--fg); border-color: var(--accent); }
+    .button-row { display: flex; gap: 8px; }
+    .button-row button { flex: 1; }
     .status-line { margin-top: 8px; font-size: 12px; color: var(--muted); }
 
-    .step { border-left: 3px solid var(--line); padding: 10px 12px; margin-bottom: 10px; background: #0b0f15; border-radius: 0 6px 6px 0; }
+    /* Live stats bar at the top of the activity panel */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+      padding: 10px;
+      background: var(--panel-3);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .stat { text-align: center; }
+    .stat .v { font-size: 17px; font-weight: 700; color: var(--fg); font-variant-numeric: tabular-nums; }
+    .stat .l { font-size: 10px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; margin-top: 2px; }
+
+    /* Currently-active indicator (mirrors Claude Code's spinner row) */
+    .now-active {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      margin-bottom: 12px;
+      background: var(--accent-soft);
+      border: 1px solid rgba(76,196,255,.3);
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--fg);
+    }
+    .now-active.idle { background: var(--panel-3); border-color: var(--line); color: var(--muted); }
+    .spinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(76,196,255,.3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    .now-active.idle .spinner { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Skill / subagent pills */
+    .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; min-height: 26px; }
+    .pill-active {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(76,196,255,.12);
+      color: var(--accent);
+      border: 1px solid rgba(76,196,255,.3);
+    }
+    .pill-active.skill { background: rgba(63,185,133,.12); color: var(--good); border-color: rgba(63,185,133,.3); }
+    .pill-active.subagent { background: rgba(201,132,224,.15); color: var(--subagent); border-color: rgba(201,132,224,.4); animation: subagent-pulse 1.4s ease-in-out infinite; }
+    .pill-active.subagent.done { animation: none; opacity: 0.65; }
+    @keyframes subagent-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(201,132,224,.4); }
+      50% { box-shadow: 0 0 0 4px rgba(201,132,224,0); }
+    }
+
+    /* Generic step / tool-call card */
+    .step {
+      border-left: 3px solid var(--line);
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      background: var(--panel-3);
+      border-radius: 0 6px 6px 0;
+      transition: border-color 0.2s ease;
+    }
     .step.done { border-left-color: var(--good); }
     .step.fail { border-left-color: var(--bad); }
-    .step .label { font-weight: 600; margin-bottom: 6px; }
-    .step pre { margin: 0; padding: 8px; background: #06090f; border-radius: 4px; font: 12px/1.4 ui-monospace, "SF Mono", Menlo, monospace; white-space: pre-wrap; overflow-x: auto; max-height: 160px; overflow-y: auto; }
-    .step .meta { margin-top: 6px; font-size: 11px; color: var(--muted); }
+    .step.running { border-left-color: var(--accent); }
+    .step.subagent { margin-left: 18px; border-left-color: var(--subagent); background: rgba(201,132,224,.04); }
+    .step.subagent.done { border-left-color: var(--good); }
 
-    .finding { border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; background: #0b0f15; }
+    .step-header { display: flex; align-items: center; gap: 8px; }
+    .step-icon { font-size: 14px; flex-shrink: 0; }
+    .step-label { font-weight: 600; flex: 1; word-break: break-word; }
+    .step-tag {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--line-soft);
+      color: var(--muted);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    .step-summary {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      word-break: break-word;
+    }
+    .step pre {
+      margin: 8px 0 0 0;
+      padding: 8px;
+      background: #06090f;
+      border-radius: 4px;
+      font: 12px/1.4 ui-monospace, "SF Mono", Menlo, monospace;
+      white-space: pre-wrap;
+      overflow-x: auto;
+      max-height: 180px;
+      overflow-y: auto;
+      color: #c9d1d9;
+    }
+    .step pre.collapsed { max-height: 60px; }
+    .step .meta { margin-top: 6px; font-size: 11px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
+    .step .meta strong { color: var(--fg); font-weight: 600; }
+
+    .narration {
+      margin: 6px 0 8px 0;
+      padding: 6px 10px;
+      background: transparent;
+      color: var(--fg);
+      font-style: italic;
+      font-size: 13px;
+      border-left: 2px solid var(--line);
+    }
+    .narration.subagent { margin-left: 18px; border-left-color: var(--subagent); }
+
+    /* Briefing finding cards (right panel) */
+    .finding { border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; background: var(--panel-3); transition: all 0.3s ease; }
     .finding.pending  { border-left: 4px solid var(--pending); }
-    .finding.challenged { border-left: 4px solid var(--challenged); }
+    .finding.challenged { border-left: 4px solid var(--challenged); animation: challenged-pulse 1.5s ease-in-out 2; }
     .finding.verified { border-left: 4px solid var(--verified); }
     .finding.refuted  { opacity: 0.6; border-left: 4px solid var(--refuted); }
+    @keyframes challenged-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(201,132,224,.0); }
+      50% { box-shadow: 0 0 0 6px rgba(201,132,224,.18); }
+    }
     .finding .name { font-weight: 700; font-size: 16px; }
     .finding .meta { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
     .finding .amt { font-size: 26px; font-weight: 700; color: #ff8888; margin: 4px 0 8px; }
@@ -56,28 +188,149 @@
     .pill.refuted { background: rgba(91,100,120,.18); color: var(--refuted); }
 
     .empty { color: var(--muted); font-style: italic; }
+    .suggested-list { padding-left: 18px; color: var(--muted); font-size: 12px; }
+    .suggested-list li { cursor: pointer; padding: 3px 0; }
+    .suggested-list li:hover { color: var(--accent); }
+
+    /* Scenario card — read-only preview of the canonical investigation */
+    .scenario {
+      padding: 12px;
+      background: var(--panel-3);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--fg);
+      max-height: 240px;
+      overflow-y: auto;
+    }
+    .scenario.editing { padding: 0; max-height: none; }
+    .scenario textarea {
+      width: 100%;
+      height: 280px;
+      padding: 12px;
+      background: transparent;
+      color: var(--fg);
+      border: 0;
+      resize: vertical;
+      font: 12px/1.55 system-ui, sans-serif;
+    }
+    .scenario textarea:focus { outline: none; }
+    .scenario p { margin: 0 0 8px 0; }
+    .scenario p:last-child { margin-bottom: 0; }
+    .scenario code {
+      background: rgba(76,196,255,.08);
+      color: var(--accent);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font: 11px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    }
+    .scenario-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 6px 0 10px 0;
+    }
+    .scenario-toolbar .badge {
+      font-size: 10px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 2px 6px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+    }
+    .scenario-toolbar .edit-link {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--muted);
+      cursor: pointer;
+      background: none;
+      border: 0;
+      padding: 0;
+      margin-top: 0;
+      font-weight: normal;
+    }
+    .scenario-toolbar .edit-link:hover { color: var(--accent); }
+
+    .run-btn {
+      width: 100%;
+      margin-top: 12px;
+      padding: 12px 14px;
+      font-size: 14px;
+    }
+
+    /* SQL keyword highlighting (very lightweight) */
+    .sql-kw { color: #79c0ff; font-weight: 600; }
+    .sql-comment { color: #8b95a7; font-style: italic; }
+    .sql-string { color: #a5d6a7; }
   </style>
 </head>
 <body>
 <div class="app">
   <section>
-    <h2>Question</h2>
-    <textarea id="q">Find federal recipients that received over $1M and went silent within a year — flag candidates worth a closer audit look.</textarea>
-    <button id="ask-btn" onclick="ask()">Investigate</button>
+    <h2>Investigation</h2>
+
+    <div class="scenario-toolbar">
+      <span class="badge">Challenge #1 · Zombie Recipients</span>
+      <button class="edit-link" id="edit-toggle" onclick="toggleEdit()">edit</button>
+    </div>
+
+    <div class="scenario" id="scenario-view">
+      <p><strong>Find 3 federal grant recipients that look operationally dormant on the public record.</strong></p>
+      <p><em>Criteria:</em> cumulative federal commitment ≥ $1M between 2018 and 2022 (use the <code>agreement_current</code> CTE pattern, not a naive SUM of <code>fed.grants_contributions</code>); no CRA T3010 filing in any year after their last grant when matched on the 9-digit BN root; no further federal grants since 2024-01-01; no Alberta grant payments in FY 2024-2025 or 2025-2026.</p>
+      <p>For each surviving candidate, quantify total federal exposure (CAD), last-known year of activity, and government-share of operating revenue from the most recent CRA filing (filtered through <code>cra.t3010_impossibilities</code>). Resolve every candidate through <code>general.vw_entity_funding</code>.</p>
+      <p>Publish 3–5 candidates as <code>pending</code> first, then delegate to the verifier subagent. Expect REFUTED for designation A foundations or open-filing-window entities — that's the methodology working. For AMBIGUOUS verdicts, use the iterative-exploration loop (≤3 follow-up queries) to defend or revise.</p>
+      <p>Frame all output as audit leads worth a closer look — never as accusations.</p>
+    </div>
+
+    <textarea id="q" style="display:none"></textarea>
+
+    <div class="button-row">
+      <button class="run-btn" id="ask-btn" onclick="ask()">▶ Run zombie investigation</button>
+    </div>
+    <div class="button-row">
+      <button id="stop-btn" class="secondary" onclick="stop()" disabled>Stop</button>
+    </div>
     <div id="status" class="status-line">Ready.</div>
-    <div style="margin-top:24px">
-      <h2>Suggested questions</h2>
-      <ul style="padding-left:18px;color:var(--muted);font-size:12px">
-        <li>Find federally-funded charities that received over $500K and have not filed a T3010 since 2022.</li>
-        <li>Show me the top 5 Alberta grant recipients from 2018-2021 that have no AB or CRA presence in 2024-2025.</li>
-        <li>Surface 3 audit leads where federal funding exceeded operating revenue at the time of the last grant.</li>
-      </ul>
+
+    <h3>Alternate scenarios</h3>
+    <ul id="suggested" class="suggested-list">
+      <li>Find federally-funded charities that received over $500K and have not filed a T3010 since 2022.</li>
+      <li>Show me the top 5 Alberta grant recipients from 2018-2021 that have no AB or CRA presence in 2024-2025.</li>
+      <li>Surface 3 audit leads where federal funding exceeded operating revenue at the time of the last grant.</li>
+    </ul>
+
+    <h3>Architecture</h3>
+    <div style="font-size:11px;color:var(--muted);line-height:1.5">
+      Orchestrator (Claude Sonnet 4.6) decomposes → SQL via postgres-mcp → publishes
+      candidates → spawns paranoid <span style="color:var(--subagent)">verifier subagent</span> →
+      iterative-exploration loop on AMBIGUOUS verdicts → final briefing.
     </div>
   </section>
 
   <section>
     <h2>Activity</h2>
-    <div id="activity"><div class="empty">No run yet.</div></div>
+
+    <!-- Live stats bar -->
+    <div class="stats">
+      <div class="stat"><div class="v" id="stat-cost">—</div><div class="l">cost</div></div>
+      <div class="stat"><div class="v" id="stat-turns">0</div><div class="l">turns</div></div>
+      <div class="stat"><div class="v" id="stat-queries">0</div><div class="l">queries</div></div>
+      <div class="stat"><div class="v" id="stat-tools">0</div><div class="l">tool calls</div></div>
+    </div>
+
+    <!-- Now-active row (Claude Code-style spinner) -->
+    <div class="now-active idle" id="now-active">
+      <div class="spinner"></div>
+      <div id="now-active-text">Idle. Click "Run zombie investigation" to start.</div>
+    </div>
+
+    <!-- Pills: which skills are loaded, which subagents are active -->
+    <div class="pills" id="pills"></div>
+
+    <!-- Activity log (steps + tool calls + narration + subagent) -->
+    <div id="activity"></div>
   </section>
 
   <section>
@@ -92,121 +345,375 @@ const activity = document.getElementById('activity');
 const briefing = document.getElementById('briefing');
 const status = document.getElementById('status');
 const askBtn = document.getElementById('ask-btn');
+const stopBtn = document.getElementById('stop-btn');
+const pillsEl = document.getElementById('pills');
+const nowActive = document.getElementById('now-active');
+const nowActiveText = document.getElementById('now-active-text');
+
 const findings = {};
+let stats = { cost: null, turns: 0, queries: 0, tools: 0 };
+let activeSkills = new Set();
+let verifierState = null; // null | 'running' | 'done'
 
 ws.addEventListener('open',  () => { status.textContent = 'Connected.'; });
-ws.addEventListener('close', () => { status.textContent = 'Disconnected.'; askBtn.disabled = true; });
+ws.addEventListener('close', () => { status.textContent = 'Disconnected.'; askBtn.disabled = true; stopBtn.disabled = true; });
 
 ws.addEventListener('message', (ev) => {
   let m;
   try { m = JSON.parse(ev.data); } catch { return; }
-
-  if (m.type === 'run_start') {
-    activity.innerHTML = '';
-    briefing.innerHTML = '';
-    Object.keys(findings).forEach(k => delete findings[k]);
-    status.textContent = 'Investigating…';
-    askBtn.disabled = true;
-    appendActivityLine(`> ${m.question}`, 'label');
-  }
-
-  if (m.type === 'step_start') {
-    const d = document.createElement('div');
-    d.className = 'step';
-    d.id = 's' + m.id;
-    d.innerHTML = `
-      <div class="label"></div>
-      <pre></pre>
-      <div class="meta status">running…</div>
-    `;
-    d.querySelector('.label').textContent = m.label || '(no label)';
-    d.querySelector('pre').textContent = m.sql || '';
-    activity.appendChild(d);
-    activity.scrollTop = activity.scrollHeight;
-  }
-
-  if (m.type === 'step_complete') {
-    const d = document.getElementById('s' + m.id);
-    if (d) {
-      d.classList.toggle('fail', !!m.is_error);
-      d.classList.toggle('done', !m.is_error);
-      const meta = d.querySelector('.status');
-      const dur = (m.duration_ms != null) ? `${m.duration_ms}ms` : 'done';
-      const rows = (m.rows != null) ? m.rows : (m.rows_estimate != null ? m.rows_estimate : '?');
-      const status = m.is_error ? 'error' : 'done';
-      meta.textContent = `${status} · ${rows} rows · ${dur}`;
-    }
-  }
-
-  if (m.type === 'subagent_stop') {
-    appendActivityLine(`✓ verifier subagent finished`, 'done');
-  }
-
-  if (m.type === 'finding') {
-    let card = findings[m.bn];
-    if (!card) {
-      card = document.createElement('div');
-      card.className = 'finding';
-      briefing.querySelector('.empty')?.remove();
-      briefing.appendChild(card);
-      findings[m.bn] = card;
-    }
-    const status = m.verifier_status || 'pending';
-    card.className = `finding ${status}`;
-    const amt = (m.total_funding_cad || 0) / 1e6;
-    card.innerHTML = `
-      <div class="name"></div>
-      <div class="meta"></div>
-      <div class="amt"></div>
-      <div class="summary"></div>
-      <div class="verdict">
-        <span class="pill ${status}">${status}</span>
-        <span class="notes"></span>
-      </div>`;
-    card.querySelector('.name').textContent = m.entity_name || '(unnamed)';
-    card.querySelector('.meta').textContent =
-      `BN ${m.bn || '—'} · last seen ${m.last_known_year || '—'}` +
-      (m.govt_dependency_pct ? ` · govt-dependency ${(m.govt_dependency_pct*100).toFixed(0)}%` : '');
-    card.querySelector('.amt').textContent = `$${amt.toFixed(2)}M`;
-    card.querySelector('.summary').textContent = m.evidence_summary || '';
-    card.querySelector('.notes').textContent = m.verifier_notes ? `— ${m.verifier_notes}` : '';
-  }
-
-  if (m.type === 'assistant_text') {
-    appendActivityLine(m.text, 'text');
-  }
-
-  if (m.type === 'result') {
-    const dur = m.duration_ms ? `${(m.duration_ms/1000).toFixed(1)}s` : '?';
-    const cost = (m.total_cost_usd != null) ? `$${m.total_cost_usd.toFixed(3)}` : '?';
-    status.textContent = `Done · ${dur} · ${cost} · ${m.num_turns || '?'} turns.`;
-  }
-
-  if (m.type === 'run_complete') {
-    askBtn.disabled = false;
-  }
-
-  if (m.type === 'error') {
-    appendActivityLine(`! error: ${m.error}`, 'fail');
-    status.textContent = 'Error — see activity.';
-    askBtn.disabled = false;
-  }
+  handle(m);
 });
 
-function appendActivityLine(text, kind) {
+function handle(m) {
+  switch (m.type) {
+    case 'run_start':            return onRunStart(m);
+    case 'assistant_text':       return onAssistantText(m);
+    case 'tool_call':            return onToolCall(m);
+    case 'tool_result':          return onToolResult(m);
+    case 'step_start':           return onStepStart(m);
+    case 'step_complete':        return onStepComplete(m);
+    case 'subagent_stop':        return onSubagentStop(m);
+    case 'task_started':         return onTaskStarted(m);
+    case 'task_progress':        return onTaskProgress(m);
+    case 'task_notification':    return onTaskNotification(m);
+    case 'finding':              return onFinding(m);
+    case 'thinking':             return onThinking(m);
+    case 'result':               return onResult(m);
+    case 'run_complete':         return onRunComplete(m);
+    case 'error':                return onError(m);
+  }
+}
+
+function onRunStart(m) {
+  activity.innerHTML = '';
+  briefing.innerHTML = '';
+  pillsEl.innerHTML = '';
+  Object.keys(findings).forEach(k => delete findings[k]);
+  stats = { cost: null, turns: 0, queries: 0, tools: 0 };
+  activeSkills.clear();
+  verifierState = null;
+  refreshStats();
+  setNowActive('Investigating…');
+  status.textContent = 'Investigating…';
+  askBtn.disabled = true;
+  stopBtn.disabled = false;
+  appendActivity(`> ${m.question}`, 'label');
+}
+
+function onAssistantText(m) {
+  if (!m.text || !m.text.trim()) return;
+  const d = document.createElement('div');
+  d.className = 'narration' + (m.is_subagent ? ' subagent' : '');
+  d.textContent = m.text.trim();
+  activity.appendChild(d);
+  scrollDown();
+  if (m.is_subagent) setNowActive('Verifier: ' + m.text.trim().slice(0, 60));
+  else setNowActive(m.text.trim().slice(0, 80));
+}
+
+function onToolCall(m) {
+  stats.tools += 1;
+  refreshStats();
+
+  // Skill-specific UX: pin a "loaded skill" pill at the top.
+  if (m.tool_name === 'Skill') {
+    const name = m.summary || 'skill';
+    if (!activeSkills.has(name)) {
+      activeSkills.add(name);
+      addPill('skill', `📚 ${name}`);
+    }
+    setNowActive(`Loading skill: ${name}`);
+  }
+
+  // Task/Agent: subagent badge + spinner.
+  if (m.tool_name === 'Task' || m.tool_name === 'Agent') {
+    if (verifierState !== 'running') {
+      verifierState = 'running';
+      addPill('subagent', `🤖 ${m.summary || 'verifier'} subagent`, 'subagent-pill');
+    }
+    setNowActive(`Spawning verifier subagent…`);
+  }
+
+  if (m.tool_name === 'mcp__ui_bridge__publish_finding') {
+    setNowActive(`Publishing finding: ${m.summary}`);
+  }
+
+  // Render the tool-call card.
+  const d = document.createElement('div');
+  d.className = 'step running';
+  if (m.is_subagent) d.classList.add('subagent');
+  d.id = 's' + m.id;
+  d.innerHTML = `
+    <div class="step-header">
+      <span class="step-icon"></span>
+      <span class="step-label"></span>
+      <span class="step-tag"></span>
+    </div>
+    <div class="step-summary"></div>
+    <div class="meta status">running…</div>
+  `;
+  d.querySelector('.step-icon').textContent = m.icon || '⚙️';
+  d.querySelector('.step-label').textContent = m.label || m.tool_name;
+  d.querySelector('.step-tag').textContent = m.is_subagent ? 'verifier' : 'main';
+  d.querySelector('.step-summary').textContent = m.summary || '';
+  activity.appendChild(d);
+  scrollDown();
+}
+
+function onToolResult(m) {
+  const d = document.getElementById('s' + m.id);
+  if (!d) return;
+  d.classList.remove('running');
+  d.classList.toggle('fail', !!m.is_error);
+  d.classList.toggle('done', !m.is_error);
+  const meta = d.querySelector('.status');
+  if (meta) meta.textContent = m.is_error ? 'error' : 'done';
+}
+
+function onStepStart(m) {
+  // SQL queries get a richer card (the SQL itself + label).
+  stats.queries += 1;
+  stats.tools += 1;
+  refreshStats();
+  setNowActive(`SQL: ${m.label || ''}`);
+  const d = document.createElement('div');
+  d.className = 'step running';
+  d.id = 's' + m.id;
+  d.innerHTML = `
+    <div class="step-header">
+      <span class="step-icon">🗄️</span>
+      <span class="step-label"></span>
+      <span class="step-tag">SQL</span>
+    </div>
+    <pre></pre>
+    <div class="meta status">running…</div>
+  `;
+  d.querySelector('.step-label').textContent = m.label || '(no label)';
+  d.querySelector('pre').innerHTML = highlightSql(m.sql || '');
+  activity.appendChild(d);
+  scrollDown();
+}
+
+function onStepComplete(m) {
+  const d = document.getElementById('s' + m.id);
+  if (!d) return;
+  d.classList.remove('running');
+  d.classList.toggle('fail', !!m.is_error);
+  d.classList.toggle('done', !m.is_error);
+  if (m.is_subagent) d.classList.add('subagent');
+  const meta = d.querySelector('.status');
+  const dur = (m.duration_ms != null) ? `${m.duration_ms}ms` : 'done';
+  const rows = (m.rows != null) ? m.rows : '?';
+  const stateLabel = m.is_error ? 'error' : 'done';
+  meta.innerHTML = `<span><strong>${stateLabel}</strong></span><span><strong>${rows}</strong> rows</span><span>${dur}</span>`;
+}
+
+function onSubagentStop(m) {
+  // The hook-driven SubagentStop signal. Mark the verifier pill done.
+  if (verifierState === 'running') {
+    verifierState = 'done';
+    const pill = document.querySelector('.subagent-pill');
+    if (pill) pill.classList.add('done');
+  }
+  appendActivity(`✓ ${m.agent || 'subagent'} returned`, 'done');
+}
+
+function onTaskStarted(m) {
+  if (verifierState !== 'running') {
+    verifierState = 'running';
+    addPill('subagent', `🤖 ${m.description || 'subagent'}`, 'subagent-pill');
+  }
+  setNowActive(`Subagent task: ${m.description || 'started'}`);
+}
+
+function onTaskProgress(m) {
+  setNowActive(`Verifier: ${m.last_tool_name || 'working'} (${m.tool_uses || 0} tool calls)`);
+}
+
+function onTaskNotification(m) {
+  if (verifierState === 'running') {
+    verifierState = 'done';
+    const pill = document.querySelector('.subagent-pill');
+    if (pill) pill.classList.add('done');
+  }
+  appendActivity(`✓ subagent ${m.status}: ${(m.summary || '').slice(0, 120)}`, 'done');
+}
+
+function onFinding(m) {
+  let card = findings[m.bn];
+  if (!card) {
+    card = document.createElement('div');
+    card.className = 'finding';
+    briefing.querySelector('.empty')?.remove();
+    briefing.appendChild(card);
+    findings[m.bn] = card;
+  }
+  const status = m.verifier_status || 'pending';
+  card.className = `finding ${status}`;
+  const amt = (m.total_funding_cad || 0) / 1e6;
+  card.innerHTML = `
+    <div class="name"></div>
+    <div class="meta"></div>
+    <div class="amt"></div>
+    <div class="summary"></div>
+    <div class="verdict">
+      <span class="pill ${status}">${status}</span>
+      <span class="notes"></span>
+    </div>`;
+  card.querySelector('.name').textContent = m.entity_name || '(unnamed)';
+  card.querySelector('.meta').textContent =
+    `BN ${m.bn || '—'} · last seen ${m.last_known_year || '—'}` +
+    (m.govt_dependency_pct ? ` · govt-dependency ${(m.govt_dependency_pct*100).toFixed(0)}%` : '');
+  card.querySelector('.amt').textContent = `$${amt.toFixed(2)}M`;
+  card.querySelector('.summary').textContent = m.evidence_summary || '';
+  card.querySelector('.notes').textContent = m.verifier_notes ? `— ${m.verifier_notes}` : '';
+}
+
+function onThinking(m) {
+  const d = document.createElement('div');
+  d.className = 'narration' + (m.is_subagent ? ' subagent' : '');
+  d.style.color = 'var(--muted)';
+  d.textContent = '🧠 ' + m.text.trim();
+  activity.appendChild(d);
+  scrollDown();
+}
+
+function onResult(m) {
+  if (m.total_cost_usd != null) stats.cost = m.total_cost_usd;
+  if (m.num_turns != null) stats.turns = m.num_turns;
+  refreshStats();
+  const dur = m.duration_ms ? `${(m.duration_ms/1000).toFixed(1)}s` : '?';
+  const cost = (m.total_cost_usd != null) ? `$${m.total_cost_usd.toFixed(3)}` : '?';
+  status.textContent = `Done · ${dur} · ${cost} · ${m.num_turns || '?'} turns.`;
+}
+
+function onRunComplete(m) {
+  askBtn.disabled = false;
+  stopBtn.disabled = true;
+  setNowActive('Done.', true);
+}
+
+function onError(m) {
+  appendActivity(`! error: ${m.error}`, 'fail');
+  status.textContent = 'Error — see activity.';
+  askBtn.disabled = false;
+  stopBtn.disabled = true;
+  setNowActive('Error.', true);
+}
+
+function appendActivity(text, kind) {
   const d = document.createElement('div');
   d.className = 'step ' + (kind === 'fail' ? 'fail' : kind === 'done' ? 'done' : '');
-  const lab = document.createElement('div'); lab.className = 'label'; lab.textContent = text;
+  const lab = document.createElement('div');
+  lab.className = 'step-header';
+  lab.innerHTML = `<span class="step-label"></span>`;
+  lab.querySelector('.step-label').textContent = text;
   d.appendChild(lab);
   activity.appendChild(d);
+  scrollDown();
+}
+
+function setNowActive(text, idle) {
+  nowActiveText.textContent = text;
+  nowActive.classList.toggle('idle', !!idle);
+}
+
+function addPill(kind, text, extraClass) {
+  const p = document.createElement('span');
+  p.className = `pill-active ${kind}` + (extraClass ? ' ' + extraClass : '');
+  p.textContent = text;
+  pillsEl.appendChild(p);
+}
+
+function refreshStats() {
+  document.getElementById('stat-cost').textContent =
+    stats.cost != null ? `$${stats.cost.toFixed(3)}` : '—';
+  document.getElementById('stat-turns').textContent = stats.turns;
+  document.getElementById('stat-queries').textContent = stats.queries;
+  document.getElementById('stat-tools').textContent = stats.tools;
+}
+
+function scrollDown() {
   activity.scrollTop = activity.scrollHeight;
 }
 
+// Lightweight SQL keyword highlighter for the activity panel.
+const SQL_KEYWORDS = /\b(SELECT|FROM|WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|JOIN|LEFT|RIGHT|INNER|OUTER|FULL|ON|AS|AND|OR|NOT|IN|EXISTS|LIMIT|OFFSET|WITH|DISTINCT|CASE|WHEN|THEN|ELSE|END|UNION|ALL|NULL|TRUE|FALSE|IS|BETWEEN|LIKE|ILIKE|COUNT|SUM|MIN|MAX|AVG|COALESCE|NULLIF|CAST|EXTRACT|YEAR|MONTH|DAY|INTERVAL|DESC|ASC|NULLS|FIRST|LAST)\b/gi;
+function highlightSql(sql) {
+  const escaped = sql
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  // Comments first (so we don't keyword-highlight inside them).
+  let result = escaped.replace(/(--[^\n]*)/g, '<span class="sql-comment">$1</span>');
+  // String literals.
+  result = result.replace(/('[^']*')/g, '<span class="sql-string">$1</span>');
+  // Keywords.
+  result = result.replace(SQL_KEYWORDS, (kw) => `<span class="sql-kw">${kw}</span>`);
+  return result;
+}
+
+// Canonical investigation query — kept verbatim in the textarea so the
+// "Edit" toggle exposes the exact text that ships to the agent. The
+// rendered scenario card above is a stylized version of the same prompt.
+const CANONICAL_QUERY = `Find me 3 federal grant recipients that look operationally dormant on the public record. Criteria: cumulative federal commitment of at least $1 million between 2018 and 2022 (use the agreement_current CTE pattern from the data-quirks skill, NOT a naive SUM of fed.grants_contributions); no CRA T3010 filing in any year after their last grant when matched on the 9-digit BN root; no further federal grants since 2024-01-01; no Alberta grant payments in fiscal years 2024-2025 or 2025-2026.
+
+For each surviving candidate, quantify total federal exposure (CAD), last-known year of activity, and government-share of operating revenue from the most recent CRA filing (filtered through cra.t3010_impossibilities so a stray five-billion-dollar typo does not pollute the ratio). Resolve every candidate through general.vw_entity_funding so the briefing names canonical entities, not aliases.
+
+Publish your top 3-5 candidates with verifier_status="pending" first, then delegate to the verifier subagent. Expect the verifier to REFUTE candidates that turn out to be designation A private foundations or whose T3010 filing window is still open — those refutations are the methodology working, not failing. For any candidate the verifier marks AMBIGUOUS, use the iterative-exploration loop (up to 3 follow-up SQL queries) to defend or revise before publishing the final verdict.
+
+Frame all output as audit leads worth a closer look — never as accusations.`;
+
+// Pre-load the textarea so toggling "Edit" reveals the real query.
+document.getElementById('q').value = CANONICAL_QUERY;
+
+const scenarioView = document.getElementById('scenario-view');
+const editToggle = document.getElementById('edit-toggle');
+const qTextarea = document.getElementById('q');
+let editing = false;
+
+function toggleEdit() {
+  editing = !editing;
+  if (editing) {
+    scenarioView.style.display = 'none';
+    qTextarea.style.display = 'block';
+    qTextarea.classList.add('scenario');
+    qTextarea.style.minHeight = '280px';
+    editToggle.textContent = 'use canonical';
+  } else {
+    qTextarea.value = CANONICAL_QUERY;
+    qTextarea.style.display = 'none';
+    qTextarea.classList.remove('scenario');
+    scenarioView.style.display = 'block';
+    editToggle.textContent = 'edit';
+  }
+}
+
+function currentQuery() {
+  return editing ? qTextarea.value.trim() : CANONICAL_QUERY;
+}
+
 function ask() {
-  const q = document.getElementById('q').value.trim();
+  const q = currentQuery();
   if (!q) return;
   ws.send(JSON.stringify({ type: 'ask', question: q }));
 }
+
+function stop() {
+  // Best-effort UI stop: we just close the active spinner; the agent
+  // run cannot be cancelled mid-turn from the client without a
+  // dedicated WS protocol message, so this is mainly visual.
+  setNowActive('Stop requested — waiting for current turn to finish…', true);
+  stopBtn.disabled = true;
+}
+
+// Click an alternate scenario → drop into edit mode pre-filled with it.
+document.getElementById('suggested').addEventListener('click', (e) => {
+  if (e.target.tagName !== 'LI') return;
+  if (!editing) toggleEdit();
+  qTextarea.value = e.target.textContent.trim();
+  qTextarea.focus();
+});
 </script>
 </body>
 </html>
