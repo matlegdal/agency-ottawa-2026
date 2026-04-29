@@ -1,0 +1,4 @@
+!.env
+.env.public
+node_modules/
+# data/raw/*.csv is tracked — committed-friendly at ~58 MB total, max 13 MB per file
