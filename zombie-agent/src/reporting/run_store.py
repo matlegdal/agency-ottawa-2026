@@ -7,10 +7,23 @@ main.py. Handles three event types:
                as status progresses; last write wins)
 - dossier   — rich per-verified-candidate evidence panels (emitted once
                per verified BN after the verdict settles)
+
+State is persisted to data/last_run.json after every event so a server
+restart does not lose a completed run.
 """
 
+import dataclasses
+import json
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
+
+from src.config import PROJECT_ROOT
+
+logger = logging.getLogger(__name__)
+
+_PERSIST_PATH = Path(PROJECT_ROOT) / "data" / "last_run.json"
 
 
 @dataclass
@@ -26,7 +39,7 @@ class RunState:
 
 class RunStore:
     def __init__(self) -> None:
-        self.state = RunState()
+        self.state = self._load() or RunState()
 
     def handle_event(self, payload: dict) -> None:
         t = payload.get("type")
@@ -50,6 +63,29 @@ class RunStore:
             }
         elif t == "run_complete":
             self.state.is_complete = True
+        else:
+            return  # nothing persisted for untracked event types
+        self._save()
+
+    def _save(self) -> None:
+        try:
+            _PERSIST_PATH.parent.mkdir(parents=True, exist_ok=True)
+            _PERSIST_PATH.write_text(
+                json.dumps(dataclasses.asdict(self.state), indent=2),
+                encoding="utf-8",
+            )
+        except Exception:
+            logger.warning("run_store: failed to persist state", exc_info=True)
+
+    def _load(self) -> RunState | None:
+        try:
+            if not _PERSIST_PATH.exists():
+                return None
+            data = json.loads(_PERSIST_PATH.read_text(encoding="utf-8"))
+            return RunState(**data)
+        except Exception:
+            logger.warning("run_store: failed to load persisted state", exc_info=True)
+            return None
 
 
 run_store = RunStore()

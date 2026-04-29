@@ -6,6 +6,7 @@ page-breaks inside cards.
 """
 
 import html
+import re
 from typing import Any
 
 from src.reporting.run_store import RunState
@@ -113,8 +114,7 @@ def _coerce_trail(v: Any) -> list:
     if isinstance(v, list):
         return v
     if isinstance(v, str) and v.strip():
-        # Split on semicolons or newlines — common join separators from the agent
-        parts = [p.strip() for sep in (";", "\n") for p in v.split(sep)]
+        parts = [p.strip() for p in re.split(r"[;\n]+", v)]
         # De-dup while preserving order, drop empties
         seen: set = set()
         result = []
