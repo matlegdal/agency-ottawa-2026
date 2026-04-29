@@ -13,8 +13,10 @@
       --panel:      #FFFFFF;
       --panel2:     #F9FAFB;
       --line:       #E5E7EB;
+      --line2:      #F3F4F6;
       --fg:         #111827;
       --muted:      #6B7280;
+      --muted2:     #9CA3AF;
       --accent:     #1D6AE5;
       --good:       #059669;
       --warn:       #D97706;
@@ -26,25 +28,48 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.5 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+    html, body {
+      height: 100%; background: var(--bg); color: var(--fg);
+      font: 14px/1.5 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
 
-    /* ── Layout ─────────────────────────────────────────────── */
+    /* ── Root grid ───────────────────────────────────────────── */
     .root {
       display: grid;
-      grid-template-rows: 60px 104px 1fr;
-      grid-template-columns: 1fr 360px;
+      grid-template-rows: 60px 84px 1fr;
+      grid-template-columns: 1fr 320px;
       height: 100vh;
     }
 
+    /* ── Header ─────────────────────────────────────────────── */
     header {
       grid-column: 1 / -1;
       display: flex; align-items: center; justify-content: space-between;
       padding: 0 24px;
       background: var(--panel);
       box-shadow: 0 1px 0 var(--line), 0 2px 8px rgba(0,0,0,0.04);
-      z-index: 10;
+      z-index: 20;
+    }
+    .logo-wrap { display: flex; flex-direction: column; gap: 1px; }
+    .logo { font-size: 14px; font-weight: 700; letter-spacing: .05em; color: var(--fg); text-transform: uppercase; }
+    .logo span { color: var(--bad); }
+    .logo-sub { font-size: 10px; color: var(--muted2); letter-spacing: .07em; text-transform: uppercase; font-weight: 500; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .timer {
+      font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 500;
+      background: var(--panel2); border: 1px solid var(--line); border-radius: 6px;
+      padding: 3px 10px; min-width: 56px; text-align: center;
+    }
+    .conn { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 7px; font-weight: 500; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--refuted); flex-shrink: 0; }
+    .dot.live { background: var(--good); animation: dot-pulse 2s ease-in-out infinite; }
+    @keyframes dot-pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(5,150,105,0.45); }
+      50%      { box-shadow: 0 0 0 5px rgba(5,150,105,0); }
     }
 
+    /* ── KPI row ─────────────────────────────────────────────── */
     .kpi-row {
       grid-column: 1 / -1;
       display: flex; align-items: stretch;
@@ -53,101 +78,137 @@
       box-shadow: 0 1px 4px rgba(0,0,0,0.04);
     }
 
-    .cards-pane {
-      background: var(--bg);
-      overflow-y: auto;
-      padding: 20px;
+    .kpi-hero {
+      width: 210px; flex-shrink: 0;
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 0 24px;
       border-right: 1px solid var(--line);
     }
+    .kpi-hero-label { font-size: 10px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin-bottom: 5px; font-weight: 600; }
+    .kpi-hero-value {
+      font-size: 26px; font-weight: 700; color: var(--bad);
+      font-variant-numeric: tabular-nums; line-height: 1;
+      transition: color .3s;
+    }
+    .kpi-hero-value.flash { animation: flash-accent .45s ease-out; }
+    @keyframes flash-accent { 0%{opacity:.5} 100%{opacity:1} }
 
+    .kpi-bar-section {
+      flex: 1; display: flex; flex-direction: column; justify-content: center;
+      padding: 0 28px; gap: 9px;
+    }
+
+    /* Stacked status bar */
+    .status-bar {
+      display: flex; height: 10px; border-radius: 6px;
+      overflow: hidden; background: var(--line); gap: 2px;
+    }
+    .status-seg {
+      height: 100%; flex: 0; min-width: 0;
+      transition: flex .7s cubic-bezier(.4,0,.2,1);
+      border-radius: 4px;
+    }
+    .seg-verified   { background: var(--good); }
+    .seg-challenged { background: var(--challenged); }
+    .seg-pending    { background: var(--warn); }
+    .seg-refuted    { background: var(--refuted); }
+
+    /* Status legend */
+    .status-legend { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; color: var(--fg); }
+    .ldot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .l-verified   .ldot { background: var(--good); }
+    .l-challenged .ldot { background: var(--challenged); }
+    .l-pending    .ldot { background: var(--warn); }
+    .l-refuted    .ldot { background: var(--refuted); }
+    .legend-count { font-variant-numeric: tabular-nums; }
+    .legend-label { color: var(--muted); font-weight: 400; }
+    .legend-sep { width: 1px; height: 14px; background: var(--line); flex-shrink: 0; }
+    .legend-total { font-size: 12px; color: var(--muted); font-weight: 500; }
+
+    /* ── Main + feed layout ─────────────────────────────────── */
+    .cards-pane {
+      overflow-y: auto; display: flex; flex-direction: column;
+      border-right: 1px solid var(--line);
+      background: var(--bg);
+    }
     .feed-pane {
       background: var(--panel);
       overflow-y: auto;
       padding: 16px;
     }
 
-    /* ── Header ─────────────────────────────────────────────── */
-    .logo-wrap { display: flex; flex-direction: column; gap: 2px; }
-    .logo { font-size: 14px; font-weight: 700; letter-spacing: .05em; color: var(--fg); text-transform: uppercase; }
-    .logo span { color: var(--bad); }
-    .logo-sub { font-size: 10px; color: var(--muted); letter-spacing: .07em; text-transform: uppercase; font-weight: 500; }
-    .header-right { display: flex; align-items: center; gap: 20px; }
-    .conn { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 7px; font-weight: 500; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--refuted); flex-shrink: 0; }
-    .dot.live { background: var(--good); animation: dot-pulse 2s ease-in-out infinite; }
-    @keyframes dot-pulse {
-      0%,100% { box-shadow: 0 0 0 0 rgba(5,150,105,0.45); }
-      50%      { box-shadow: 0 0 0 5px rgba(5,150,105,0); }
-    }
-    .timer {
-      font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 500;
-      background: var(--panel2); border: 1px solid var(--line); border-radius: 6px;
-      padding: 3px 10px; min-width: 60px; text-align: center;
-    }
-
-    /* ── KPI tiles ───────────────────────────────────────────── */
-    .kpi {
-      flex: 1;
-      display: flex; flex-direction: column; justify-content: center;
-      padding: 0 20px;
+    /* ── Pane header (tabs + view toggle) ───────────────────── */
+    .pane-header {
+      position: sticky; top: 0; z-index: 10;
       background: var(--panel);
-      position: relative;
-      border-right: 1px solid var(--line);
-      transition: background .15s;
-    }
-    .kpi:last-child { border-right: none; }
-    .kpi:hover { background: var(--panel2); }
-    .kpi::after {
-      content: ''; position: absolute; left: 0; top: 22%; bottom: 22%;
-      width: 3px; border-radius: 0 2px 2px 0;
-    }
-    .kpi.funding::after    { background: var(--bad); }
-    .kpi.total::after      { background: var(--accent); }
-    .kpi.verified::after   { background: var(--verified); }
-    .kpi.challenged::after { background: var(--challenged); }
-    .kpi.refuted::after    { background: var(--refuted); }
-    .kpi.pending::after    { background: var(--pending); }
-
-    .kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin-bottom: 5px; font-weight: 600; }
-    .kpi-value {
-      font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums;
-      line-height: 1; color: var(--fg); transition: color .3s;
-    }
-    .kpi.funding .kpi-value { color: var(--bad); }
-    .kpi-value.flash { animation: flash-accent .45s ease-out; }
-    @keyframes flash-accent { 0%{color:var(--accent)} 100%{color:inherit} }
-
-    /* ── Section headings ────────────────────────────────────── */
-    .pane-title {
-      font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
-      color: var(--muted); margin-bottom: 14px; font-weight: 600;
+      border-bottom: 1px solid var(--line);
+      padding: 10px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; flex-shrink: 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
     }
 
-    /* ── Finding cards ───────────────────────────────────────── */
+    /* Filter tabs */
+    .tab-bar { display: flex; gap: 2px; flex-wrap: wrap; }
+    .tab {
+      display: flex; align-items: center; gap: 4px;
+      padding: 5px 11px; border-radius: 6px; border: none;
+      background: none; cursor: pointer;
+      font-size: 12px; font-weight: 600; color: var(--muted);
+      font-family: inherit; transition: background .13s, color .13s;
+      white-space: nowrap;
+    }
+    .tab:hover { background: var(--panel2); color: var(--fg); }
+    .tab[data-filter="all"].active       { background: var(--fg);          color: var(--panel); }
+    .tab[data-filter="verified"].active  { background: #D1FAE5;            color: #065F46; }
+    .tab[data-filter="challenged"].active{ background: #EDE9FE;            color: #4C1D95; }
+    .tab[data-filter="pending"].active   { background: #FEF3C7;            color: #78350F; }
+    .tab[data-filter="refuted"].active   { background: var(--panel2);      color: #374151; border: 1px solid var(--line); }
+    .tab-badge {
+      display: inline-block; padding: 0 5px; border-radius: 999px;
+      font-size: 10px; font-weight: 700; background: rgba(0,0,0,0.07);
+      font-variant-numeric: tabular-nums; line-height: 16px; min-width: 16px; text-align: center;
+    }
+    .tab.active .tab-badge { background: rgba(0,0,0,0.12); }
+
+    /* View toggle */
+    .view-toggle { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; flex-shrink: 0; }
+    .view-btn {
+      padding: 5px 10px; border: none; background: var(--panel);
+      cursor: pointer; font-size: 14px; color: var(--muted);
+      transition: background .13s, color .13s; font-family: inherit;
+    }
+    .view-btn:hover { background: var(--panel2); color: var(--fg); }
+    .view-btn.active { background: var(--fg); color: var(--panel); }
+    .view-btn + .view-btn { border-left: 1px solid var(--line); }
+
+    /* ── Cards view ─────────────────────────────────────────── */
+    #cards-view { padding: 16px 20px; }
+
     .cards-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
       gap: 14px;
     }
 
     .card {
       border: 1px solid var(--line);
       border-radius: 10px;
-      padding: 18px 18px 14px;
+      padding: 16px 16px 12px;
       background: var(--panel);
-      position: relative;
-      overflow: hidden;
-      transition: border-color .2s, box-shadow .2s;
+      position: relative; overflow: hidden;
+      transition: border-color .2s, box-shadow .2s, transform .15s;
       box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
     .card:hover {
-      box-shadow: 0 4px 12px rgba(0,0,0,0.10);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.10);
       border-color: #D1D5DB;
+      transform: translateY(-1px);
     }
     .card::before {
       content: ''; position: absolute; left: 0; top: 0; bottom: 0;
       width: 4px; border-radius: 10px 0 0 10px;
-      transition: background .4s;
     }
     .card.pending::before    { background: var(--pending); }
     .card.challenged::before { background: var(--challenged); }
@@ -161,69 +222,322 @@
     }
 
     .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
-    .card-name { font-size: 14px; font-weight: 700; color: var(--fg); flex: 1; min-width: 0; line-height: 1.3; }
+    .card-name { font-size: 13px; font-weight: 700; color: var(--fg); flex: 1; min-width: 0; line-height: 1.35; }
     .pill {
-      display: inline-block; padding: 3px 9px; border-radius: 999px;
+      display: inline-block; padding: 2px 8px; border-radius: 999px;
       font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
       white-space: nowrap; flex-shrink: 0;
     }
     .pill.pending    { background: #FEF3C7; color: #92400E; }
     .pill.challenged { background: #EDE9FE; color: #5B21B6; }
     .pill.verified   { background: #D1FAE5; color: #047857; }
-    .pill.refuted    { background: #F3F4F6; color: #4B5563; }
+    .pill.refuted    { background: var(--panel2); color: #4B5563; border: 1px solid var(--line); }
 
-    .card-bn { font-size: 11px; color: var(--muted); margin-bottom: 10px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
-    .card-amount { font-size: 26px; font-weight: 700; color: var(--bad); margin-bottom: 2px; line-height: 1; }
+    .card-bn { font-size: 10px; color: var(--muted2); margin-bottom: 10px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+    .card-amount { font-size: 24px; font-weight: 700; color: var(--bad); margin-bottom: 1px; line-height: 1; font-variant-numeric: tabular-nums; }
     .card-meta { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
-    .card-dep { display: inline-block; padding: 2px 8px; border-radius: 4px; background: #FEE2E2; color: var(--bad); font-size: 11px; font-weight: 600; margin-bottom: 10px; }
+    .card-dep {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 7px; border-radius: 4px; background: #FEE2E2; color: var(--bad);
+      font-size: 10px; font-weight: 600; margin-bottom: 10px;
+    }
     .card-evidence { font-size: 12px; color: #374151; line-height: 1.55; }
     .card-verdict {
       margin-top: 10px; padding: 8px 10px; border-radius: 6px;
       background: var(--panel2); border-left: 3px solid var(--line);
       font-size: 11px; color: var(--muted); line-height: 1.5;
     }
-
     .card-appear { animation: card-in .3s ease-out; }
     @keyframes card-in { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: none; } }
 
+    /* ── Table view ─────────────────────────────────────────── */
+    #table-view { background: var(--panel); overflow-x: auto; }
+
+    .findings-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    .findings-table thead {
+      position: sticky; top: 0; z-index: 5;
+      background: var(--panel2);
+      border-bottom: 2px solid var(--line);
+    }
+    .findings-table th {
+      padding: 10px 14px; text-align: left;
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--muted); white-space: nowrap;
+    }
+    .findings-table th.right { text-align: right; }
+    .findings-table td {
+      padding: 12px 14px; border-bottom: 1px solid var(--line2);
+      vertical-align: middle;
+    }
+    .findings-table tbody tr { cursor: default; transition: background .12s; }
+    .findings-table tbody tr:hover { background: var(--panel2); }
+    .td-name { font-weight: 600; color: var(--fg); }
+    .td-bn { font-size: 10px; color: var(--muted2); font-family: ui-monospace, "SF Mono", monospace; margin-top: 2px; font-weight: 400; }
+    .td-amount { font-weight: 700; color: var(--bad); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .td-right { text-align: right; color: var(--muted); font-size: 12px; }
+    .td-center { text-align: center; }
+    .td-dept { font-family: ui-monospace, "SF Mono", monospace; font-size: 11px; color: var(--muted); }
+    .td-year { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .table-empty td { color: var(--muted); font-style: italic; padding: 32px 14px; text-align: center; }
+
     /* ── Activity feed ───────────────────────────────────────── */
+    .pane-title {
+      font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
+      color: var(--muted); margin-bottom: 12px; font-weight: 600;
+    }
     .feed-item {
-      padding: 7px 8px;
-      border-radius: 6px;
-      font-size: 12px;
-      line-height: 1.5;
-      margin-bottom: 2px;
-      transition: background .12s;
+      padding: 7px 8px; border-radius: 6px; font-size: 12px;
+      line-height: 1.5; margin-bottom: 2px; transition: background .12s;
     }
     .feed-item:hover { background: var(--panel2); }
-
     .feed-label { font-weight: 600; color: var(--fg); margin-bottom: 1px; }
     .feed-meta { color: var(--muted); font-size: 11px; }
-    .feed-meta.ok   { color: var(--good); }
-    .feed-meta.err  { color: var(--bad); }
-    .feed-meta.run  { color: var(--muted); font-style: italic; }
-
-    .feed-item.type-run_start .feed-label   { color: var(--accent); }
-    .feed-item.type-subagent_stop .feed-label { color: var(--challenged); }
+    .feed-meta.ok  { color: var(--good); }
+    .feed-meta.err { color: var(--bad); }
+    .feed-meta.run { color: var(--muted); font-style: italic; }
+    .feed-item.type-run_start .feed-label    { color: var(--accent); }
+    .feed-item.type-subagent_stop .feed-label{ color: var(--challenged); }
     .feed-item.type-result .feed-label       { color: var(--good); }
     .feed-item.type-error .feed-label        { color: var(--bad); }
-    .feed-item.type-assistant_text .feed-label { color: var(--muted); font-style: italic; font-weight: 400; }
-
+    .feed-item.type-assistant_text .feed-label{ color: var(--muted); font-style: italic; font-weight: 400; }
     .feed-time {
-      font-size: 10px; color: var(--muted); margin-right: 6px;
+      font-size: 10px; color: var(--muted2); margin-right: 6px;
       font-variant-numeric: tabular-nums; font-weight: 400;
     }
 
+    /* ── Empty / placeholder states ─────────────────────────── */
     .empty {
       color: var(--muted); font-style: italic; font-size: 12px;
       border: 1px dashed var(--line); border-radius: 8px;
       padding: 28px 20px; text-align: center;
+    }
+    /* Any lone .empty or splash inside the grid spans all columns */
+    .cards-grid > .empty,
+    .cards-grid > .cards-splash { grid-column: 1 / -1; }
+
+    /* ── Cards splash (no investigation yet) ─────────────────── */
+    .cards-splash {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; text-align: center;
+      padding: 64px 32px; gap: 12px;
+    }
+    .splash-icon {
+      width: 64px; height: 64px; border-radius: 18px;
+      background: var(--panel); border: 1px solid var(--line);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted); margin-bottom: 6px;
+    }
+    .splash-title { font-size: 15px; font-weight: 700; color: var(--fg); }
+    .splash-desc  {
+      font-size: 13px; color: var(--muted); line-height: 1.65;
+      max-width: 380px;
+    }
+    .splash-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 4px; padding: 5px 12px; border-radius: 999px;
+      background: var(--panel); border: 1px solid var(--line);
+      font-size: 11px; font-weight: 600; color: var(--muted2);
+    }
+    .splash-badge-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--refuted);
+    }
+
+    /* ── Scanning banner (run active, waiting for first card) ─── */
+    .scan-banner {
+      grid-column: 1 / -1;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 600; color: var(--accent);
+      padding: 2px 0 6px;
+    }
+    .scan-pulse {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+      animation: dot-pulse 1.4s ease-in-out infinite;
+    }
+
+    /* ── Skeleton shimmer cards ──────────────────────────────── */
+    .skeleton-card {
+      border: 1px solid var(--line); border-radius: 10px;
+      background: var(--panel); overflow: hidden; position: relative;
+      padding: 16px 16px 14px; display: flex; flex-direction: column; gap: 0;
+    }
+    .skeleton-card::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(
+        100deg,
+        transparent 20%, rgba(255,255,255,.75) 50%, transparent 80%
+      );
+      background-size: 200% 100%;
+      animation: shimmer 1.6s infinite linear;
+    }
+    @keyframes shimmer {
+      0%   { background-position:  200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .sk { height: 9px; border-radius: 5px; background: var(--line); }
+    .sk + .sk { margin-top: 7px; }
+    .sk.w-70 { width: 70%; }
+    .sk.w-40 { width: 40%; }
+    .sk.w-85 { width: 85%; }
+    .sk.w-60 { width: 60%; }
+    .sk.tall  { height: 20px; width: 48%; margin-top: 12px; }
+    .sk.spacer{ margin-top: 12px; }
+
+    /* ── Feed splash (no run yet) ────────────────────────────── */
+    .feed-splash {
+      display: flex; flex-direction: column; align-items: center;
+      text-align: center; padding: 36px 16px; gap: 8px;
+    }
+    .feed-splash-icon {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: var(--panel2); border: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted2); margin-bottom: 4px;
+    }
+    .feed-splash-title { font-size: 13px; font-weight: 700; color: var(--fg); }
+    .feed-splash-desc  { font-size: 11px; color: var(--muted); line-height: 1.6; max-width: 240px; }
+
+    /* ── Feed pane header (title + mobile close) ─────────────── */
+    .feed-pane-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .feed-pane-header .pane-title { margin-bottom: 0; }
+    .feed-close { display: none; }
+
+    /* ── Feed toggle button (mobile only, hidden on desktop) ──── */
+    .feed-toggle { display: none; }
+
+    /* ── Backdrop (mobile only) ──────────────────────────────── */
+    .feed-backdrop { display: none; }
+
+    /* ════════════════════════════════════════════════════════════
+       RESPONSIVE — mobile (≤ 768 px)
+       ════════════════════════════════════════════════════════════ */
+    @media (max-width: 768px) {
+
+      /* Root: single-column, KPI row height auto */
+      .root {
+        grid-template-columns: 1fr;
+        grid-template-rows: 56px auto 1fr;
+      }
+
+      /* Header */
+      header { padding: 0 14px; height: 56px; }
+      .logo { font-size: 12px; letter-spacing: .04em; }
+      .logo-sub { display: none; }
+      .timer { min-width: 44px; padding: 3px 8px; font-size: 11px; }
+      .conn { gap: 6px; font-size: 11px; }
+      #conn-label { display: none; }   /* show just the dot on very small screens */
+
+      /* Feed toggle button */
+      .feed-toggle {
+        display: flex; align-items: center; justify-content: center;
+        position: relative;
+        width: 34px; height: 34px; border-radius: 8px;
+        border: 1px solid var(--line); background: var(--panel2);
+        cursor: pointer; color: var(--muted); font-size: 16px;
+        transition: background .13s, color .13s, border-color .13s;
+        font-family: inherit; flex-shrink: 0;
+      }
+      .feed-toggle:hover  { background: var(--line); color: var(--fg); }
+      .feed-toggle.is-open { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+
+      /* Unread badge */
+      .feed-toggle-badge {
+        position: absolute; top: -4px; right: -4px;
+        width: 10px; height: 10px; border-radius: 50%;
+        background: var(--bad); border: 2px solid var(--panel);
+        animation: dot-pulse 2s infinite;
+      }
+
+      /* Feed pane: slide-in drawer from right */
+      .feed-pane {
+        position: fixed;
+        top: 56px; right: 0;
+        width: min(320px, 88vw);
+        height: calc(100vh - 56px);
+        z-index: 30;
+        border-left: 1px solid var(--line);
+        box-shadow: -6px 0 28px rgba(0,0,0,0.14);
+        transform: translateX(110%);
+        transition: transform .3s cubic-bezier(.4,0,.2,1);
+        overflow-y: auto;
+      }
+      .feed-pane.is-open { transform: translateX(0); }
+
+      /* Backdrop */
+      .feed-backdrop {
+        display: block;
+        position: fixed; inset: 0;
+        background: rgba(17,24,39,.35);
+        z-index: 25;
+        opacity: 0; pointer-events: none;
+        transition: opacity .3s ease;
+      }
+      .feed-backdrop.is-open { opacity: 1; pointer-events: auto; }
+
+      /* Feed close button (inside drawer) */
+      .feed-close {
+        display: flex; align-items: center; justify-content: center;
+        width: 28px; height: 28px; border-radius: 6px;
+        border: 1px solid var(--line); background: none;
+        cursor: pointer; font-size: 14px; color: var(--muted);
+        transition: background .12s, color .12s; font-family: inherit;
+      }
+      .feed-close:hover { background: var(--panel2); color: var(--fg); }
+
+      /* KPI row: horizontal hero inline + stacked bar below */
+      .kpi-row {
+        flex-direction: column; height: auto;
+        padding: 12px 16px; gap: 10px;
+      }
+      .kpi-hero {
+        width: auto; border-right: none;
+        padding: 0;
+        flex-direction: row; align-items: baseline; gap: 10px;
+      }
+      .kpi-hero-label { font-size: 10px; margin-bottom: 0; white-space: nowrap; }
+      .kpi-hero-value  { font-size: 20px; }
+      .kpi-bar-section { padding: 0; gap: 7px; }
+      .status-bar      { height: 8px; }
+      .status-legend   { gap: 10px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+      .status-legend::-webkit-scrollbar { display: none; }
+      .legend-label { display: none; }   /* keep dot + count, drop text */
+      .legend-sep   { display: none; }
+      .legend-total { white-space: nowrap; }
+
+      /* Tab bar: horizontal scroll, no wrap */
+      .tab-bar {
+        flex-wrap: nowrap;
+        overflow-x: auto; -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .tab-bar::-webkit-scrollbar { display: none; }
+      .tab { font-size: 11px; padding: 5px 9px; }
+
+      /* Pane header */
+      .pane-header { padding: 8px 14px; gap: 8px; }
+
+      /* Cards */
+      #cards-view { padding: 12px 14px; }
+      .cards-grid { grid-template-columns: 1fr; gap: 10px; }
+      .card { padding: 14px 14px 12px; }
+      .card-amount { font-size: 20px; }
+
+      /* Table */
+      #table-view { font-size: 12px; }
+      .findings-table th,
+      .findings-table td { padding: 10px 10px; }
     }
   </style>
 </head>
 <body>
 <div class="root">
 
+  <!-- ── Header ──────────────────────────────────────────────── -->
   <header>
     <div class="logo-wrap">
       <div class="logo">Zombie Recipients <span>&#9632;</span> Live Dashboard</div>
@@ -231,6 +545,12 @@
     </div>
     <div class="header-right">
       <div class="timer" id="timer">–</div>
+      <button class="feed-toggle" id="feed-toggle" title="Live Activity">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round">
+          <line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="10" y2="12"/>
+        </svg>
+        <span class="feed-toggle-badge" id="feed-badge" hidden></span>
+      </button>
       <div class="conn">
         <div class="dot" id="dot"></div>
         <span id="conn-label">Connecting…</span>
@@ -238,53 +558,147 @@
     </div>
   </header>
 
+  <!-- ── KPI row ─────────────────────────────────────────────── -->
   <div class="kpi-row">
-    <div class="kpi funding">
-      <div class="kpi-label">Total Funding at Risk</div>
-      <div class="kpi-value" id="kpi-funding">$0</div>
+    <div class="kpi-hero">
+      <div class="kpi-hero-label">Total Funding at Risk</div>
+      <div class="kpi-hero-value" id="kpi-funding">$0</div>
     </div>
-    <div class="kpi total">
-      <div class="kpi-label">Candidates</div>
-      <div class="kpi-value" id="kpi-total">0</div>
-    </div>
-    <div class="kpi verified">
-      <div class="kpi-label">Verified</div>
-      <div class="kpi-value" id="kpi-verified">0</div>
-    </div>
-    <div class="kpi challenged">
-      <div class="kpi-label">Challenged</div>
-      <div class="kpi-value" id="kpi-challenged">0</div>
-    </div>
-    <div class="kpi pending">
-      <div class="kpi-label">Pending</div>
-      <div class="kpi-value" id="kpi-pending">0</div>
-    </div>
-    <div class="kpi refuted">
-      <div class="kpi-label">Refuted</div>
-      <div class="kpi-value" id="kpi-refuted">0</div>
+    <div class="kpi-bar-section">
+      <div class="status-bar">
+        <div class="status-seg seg-verified"   id="seg-verified"></div>
+        <div class="status-seg seg-challenged" id="seg-challenged"></div>
+        <div class="status-seg seg-pending"    id="seg-pending"></div>
+        <div class="status-seg seg-refuted"    id="seg-refuted"></div>
+      </div>
+      <div class="status-legend">
+        <span class="legend-item l-verified">
+          <span class="ldot"></span>
+          <span class="legend-count" id="kpi-verified">0</span>
+          <span class="legend-label">Verified</span>
+        </span>
+        <span class="legend-sep"></span>
+        <span class="legend-item l-challenged">
+          <span class="ldot"></span>
+          <span class="legend-count" id="kpi-challenged">0</span>
+          <span class="legend-label">Challenged</span>
+        </span>
+        <span class="legend-sep"></span>
+        <span class="legend-item l-pending">
+          <span class="ldot"></span>
+          <span class="legend-count" id="kpi-pending">0</span>
+          <span class="legend-label">Pending</span>
+        </span>
+        <span class="legend-sep"></span>
+        <span class="legend-item l-refuted">
+          <span class="ldot"></span>
+          <span class="legend-count" id="kpi-refuted">0</span>
+          <span class="legend-label">Refuted</span>
+        </span>
+        <span class="legend-sep"></span>
+        <span class="legend-total"><span id="kpi-total">0</span> candidates total</span>
+      </div>
     </div>
   </div>
 
+  <!-- ── Main: cards/table pane ──────────────────────────────── -->
   <div class="cards-pane">
-    <div class="pane-title">Audit Leads</div>
-    <div class="cards-grid" id="cards-grid">
-      <div class="empty">Waiting for the agent to surface candidates…</div>
+    <div class="pane-header">
+      <div class="tab-bar" id="tab-bar">
+        <button class="tab active" data-filter="all">
+          All <span class="tab-badge" id="tab-n-all">0</span>
+        </button>
+        <button class="tab" data-filter="verified">
+          ✓ Verified <span class="tab-badge" id="tab-n-verified">0</span>
+        </button>
+        <button class="tab" data-filter="challenged">
+          ! Challenged <span class="tab-badge" id="tab-n-challenged">0</span>
+        </button>
+        <button class="tab" data-filter="pending">
+          ○ Pending <span class="tab-badge" id="tab-n-pending">0</span>
+        </button>
+        <button class="tab" data-filter="refuted">
+          ✗ Refuted <span class="tab-badge" id="tab-n-refuted">0</span>
+        </button>
+      </div>
+      <div class="view-toggle">
+        <button class="view-btn active" id="btn-cards" title="Card view">⊞</button>
+        <button class="view-btn"        id="btn-table" title="Table view">☰</button>
+      </div>
+    </div>
+
+    <div id="cards-view">
+      <div class="cards-grid" id="cards-grid">
+        <div class="cards-splash">
+          <div class="splash-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+              <path d="M8 11h6M11 8v6" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <div class="splash-title">No active investigation</div>
+          <div class="splash-desc">Start the agent to surface zombie recipients — organizations that received federal funding but are no longer active or registered.</div>
+          <div class="splash-badge">
+            <span class="splash-badge-dot"></span>
+            Agent idle &mdash; awaiting run
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="table-view" hidden>
+      <table class="findings-table" id="findings-table">
+        <thead>
+          <tr>
+            <th>Entity</th>
+            <th class="right">Amount</th>
+            <th>Dept</th>
+            <th>Last Year</th>
+            <th class="center">Status</th>
+            <th class="right">Gov't Dep.</th>
+          </tr>
+        </thead>
+        <tbody id="findings-tbody">
+          <tr class="table-empty"><td colspan="6">No data yet.</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
-  <div class="feed-pane">
-    <div class="pane-title">Live Activity</div>
-    <div id="feed"><div class="empty">No run yet.</div></div>
+  <!-- ── Live feed pane ───────────────────────────────────────── -->
+  <div class="feed-pane" id="feed-pane">
+    <div class="feed-pane-header">
+      <div class="pane-title">Live Activity</div>
+      <button class="feed-close" id="feed-close" title="Close">✕</button>
+    </div>
+    <div id="feed">
+      <div class="feed-splash">
+        <div class="feed-splash-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M5.636 5.636a9 9 0 1 0 12.728 12.728M5.636 5.636A9 9 0 0 1 18.364 18.364"/>
+            <circle cx="12" cy="12" r="1" fill="currentColor"/>
+            <path d="M12 6v2M12 16v2M6 12h2M16 12h2"/>
+          </svg>
+        </div>
+        <div class="feed-splash-title">Awaiting signal</div>
+        <div class="feed-splash-desc">Live agent events will stream here when an investigation starts.</div>
+      </div>
+    </div>
   </div>
 
 </div>
 
+<!-- Backdrop (mobile drawer) -->
+<div class="feed-backdrop" id="feed-backdrop"></div>
+
 <script>
 // ── State ──────────────────────────────────────────────────────────
 const findings = {};   // bn → { data, cardEl }
-const steps    = {};   // tool_use_id → feedItemEl
+const steps    = {};   // id → feedItemEl
 let runStart   = null;
 let timerRaf   = null;
+let activeFilter = 'all';
 
 // ── KPI elements ───────────────────────────────────────────────────
 const kpiEls = {
@@ -298,12 +712,13 @@ const kpiEls = {
 
 function flash(el) {
   el.classList.remove('flash');
-  void el.offsetWidth; // reflow
+  void el.offsetWidth;
   el.classList.add('flash');
 }
 
 function updateKPIs() {
   const list = Object.values(findings).map(f => f.data);
+  const total = list.length;
   const totalFunding = list.reduce((s, f) => s + (f.total_funding_cad || 0), 0);
   const counts = { verified: 0, challenged: 0, pending: 0, refuted: 0 };
   for (const f of list) counts[f.verifier_status] = (counts[f.verifier_status] || 0) + 1;
@@ -311,11 +726,24 @@ function updateKPIs() {
   const fmtM = v => v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v.toFixed(0)}`;
 
   setText(kpiEls.funding,    fmtM(totalFunding));
-  setText(kpiEls.total,      list.length);
+  setText(kpiEls.total,      total);
   setText(kpiEls.verified,   counts.verified   || 0);
   setText(kpiEls.challenged, counts.challenged || 0);
   setText(kpiEls.pending,    counts.pending    || 0);
   setText(kpiEls.refuted,    counts.refuted    || 0);
+
+  // Tab badges
+  document.getElementById('tab-n-all').textContent       = total;
+  document.getElementById('tab-n-verified').textContent   = counts.verified   || 0;
+  document.getElementById('tab-n-challenged').textContent = counts.challenged || 0;
+  document.getElementById('tab-n-pending').textContent    = counts.pending    || 0;
+  document.getElementById('tab-n-refuted').textContent    = counts.refuted    || 0;
+
+  // Status bar segments
+  const segs = ['verified','challenged','pending','refuted'];
+  for (const s of segs) {
+    document.getElementById('seg-' + s).style.flex = total > 0 ? (counts[s] || 0) : 0;
+  }
 }
 
 function setText(el, val) {
@@ -341,50 +769,128 @@ function stopTimer() {
   timerRaf = null;
 }
 
-// ── Cards ──────────────────────────────────────────────────────────
+// ── Filter tabs ────────────────────────────────────────────────────
+document.getElementById('tab-bar').addEventListener('click', e => {
+  const tab = e.target.closest('.tab');
+  if (!tab) return;
+  applyFilter(tab.dataset.filter);
+});
+
+function applyFilter(filter) {
+  activeFilter = filter;
+  document.querySelectorAll('.tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.filter === filter)
+  );
+  for (const { data, cardEl } of Object.values(findings)) {
+    const show = filter === 'all' || data.verifier_status === filter;
+    cardEl.style.display = show ? '' : 'none';
+  }
+  if (!document.getElementById('table-view').hidden) syncTable();
+}
+
+// ── View toggle ────────────────────────────────────────────────────
+document.getElementById('btn-cards').addEventListener('click', () => setView('cards'));
+document.getElementById('btn-table').addEventListener('click', () => setView('table'));
+
+function setView(v) {
+  const isCards = v === 'cards';
+  document.getElementById('cards-view').hidden = !isCards;
+  document.getElementById('table-view').hidden  =  isCards;
+  document.getElementById('btn-cards').classList.toggle('active',  isCards);
+  document.getElementById('btn-table').classList.toggle('active', !isCards);
+  if (!isCards) syncTable();
+}
+
+// ── Table sync ─────────────────────────────────────────────────────
 const grid = document.getElementById('cards-grid');
 
+function syncTable() {
+  const tbody = document.getElementById('findings-tbody');
+  const list = Object.values(findings)
+    .map(f => f.data)
+    .filter(m => activeFilter === 'all' || m.verifier_status === activeFilter)
+    .sort((a, b) => (b.total_funding_cad || 0) - (a.total_funding_cad || 0));
+
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr class="table-empty"><td colspan="6">No data.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = list.map(m => {
+    const name   = m.entity_name || m.name || m.legal_name || m.recipient_legal_name || '(unknown)';
+    const status = m.verifier_status || 'pending';
+    const amt    = m.total_funding_cad || 0;
+    const amtFmt = amt >= 1e6 ? `$${(amt/1e6).toFixed(2)}M` : amt >= 1e3 ? `$${(amt/1e3).toFixed(0)}K` : `$${amt.toFixed(0)}`;
+    const dep    = m.govt_dependency_pct > 0 ? `${(m.govt_dependency_pct*100).toFixed(0)}%` : '—';
+    const dept   = esc(m.last_dept || '—');
+    return `<tr data-status="${status}">
+      <td class="td-name">${esc(name)}<div class="td-bn">${esc(m.bn || '')}</div></td>
+      <td class="td-amount right">${amtFmt}</td>
+      <td class="td-dept">${dept}</td>
+      <td class="td-year td-center">${m.last_known_year || '—'}</td>
+      <td class="td-center"><span class="pill ${status}">${status}</span></td>
+      <td class="td-right">${dep}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Skeleton helper ────────────────────────────────────────────────
+function skelCards() {
+  const card = (w1, w2) => `
+    <div class="skeleton-card skel-ph">
+      <div class="sk w-${w1}"></div>
+      <div class="sk w-40"></div>
+      <div class="sk tall"></div>
+      <div class="sk w-${w2} spacer"></div>
+      <div class="sk w-60" style="margin-top:6px"></div>
+    </div>`;
+  return `
+    <div class="scan-banner skel-ph">
+      <span class="scan-pulse"></span>Scanning federal records…
+    </div>
+    ${card(70,85)}${card(75,90)}${card(60,80)}`;
+}
+
+// ── Cards ──────────────────────────────────────────────────────────
 function upsertCard(m) {
   const existing = findings[m.bn];
   if (!existing) {
-    grid.querySelector('.empty')?.remove();
+    grid.querySelectorAll('.skel-ph').forEach(e => e.remove());
     const el = document.createElement('div');
     el.className = `card ${m.verifier_status} card-appear`;
+    if (activeFilter !== 'all' && m.verifier_status !== activeFilter) el.style.display = 'none';
     grid.prepend(el);
     findings[m.bn] = { data: m, cardEl: el };
     try { renderCard(el, m); } catch(e) { console.error('renderCard:', e); }
   } else {
     existing.data = m;
     existing.cardEl.className = `card ${m.verifier_status}`;
+    existing.cardEl.style.display = (activeFilter === 'all' || m.verifier_status === activeFilter) ? '' : 'none';
     try { renderCard(existing.cardEl, m); } catch(e) { console.error('renderCard:', e); }
   }
   updateKPIs();
+  if (!document.getElementById('table-view').hidden) syncTable();
 }
 
 function renderCard(el, m) {
-  const name = m.entity_name || m.name || m.legal_name || m.recipient_legal_name || '(unknown entity)';
+  const name   = m.entity_name || m.name || m.legal_name || m.recipient_legal_name || '(unknown entity)';
   const status = m.verifier_status || 'pending';
-  const amt = m.total_funding_cad || 0;
-  const amtFmt = amt >= 1e6
-    ? `$${(amt / 1e6).toFixed(2)}M`
-    : amt >= 1e3 ? `$${(amt / 1e3).toFixed(0)}K` : `$${amt.toFixed(0)}`;
-  const dep = m.govt_dependency_pct > 0
-    ? `<span class="card-dep">${(m.govt_dependency_pct * 100).toFixed(0)}% govt-funded</span>`
-    : '';
+  const amt    = m.total_funding_cad || 0;
+  const amtFmt = amt >= 1e6 ? `$${(amt/1e6).toFixed(2)}M` : amt >= 1e3 ? `$${(amt/1e3).toFixed(0)}K` : `$${amt.toFixed(0)}`;
+  const dep    = m.govt_dependency_pct > 0
+    ? `<span class="card-dep">${(m.govt_dependency_pct*100).toFixed(0)}% govt-funded</span>` : '';
   const verdict = m.verifier_notes
-    ? `<div class="card-verdict">${esc(m.verifier_notes)}</div>`
-    : '';
+    ? `<div class="card-verdict">${esc(m.verifier_notes)}</div>` : '';
   const trailArr = Array.isArray(m.sql_trail) ? m.sql_trail : [];
   const trail = trailArr.length
-    ? `<div class="feed-meta" style="margin-top:6px">Queries: ${esc(trailArr.join(' · '))}</div>`
-    : '';
+    ? `<div class="feed-meta" style="margin-top:6px">Queries: ${esc(trailArr.join(' · '))}</div>` : '';
 
   el.innerHTML = `
     <div class="card-top">
       <div class="card-name">${esc(name)}</div>
       <div class="pill ${status}">${status}</div>
     </div>
-    <div class="card-bn">${esc(m.bn)} &middot; last known ${m.last_known_year || '—'}</div>
+    <div class="card-bn">${esc(m.bn || '')} &middot; last known ${m.last_known_year || '—'}</div>
     <div class="card-amount">${amtFmt}</div>
     <div class="card-meta">cumulative federal funding</div>
     ${dep}
@@ -412,6 +918,11 @@ function feedItem(typeClass, labelHtml, metaHtml = '', id = null) {
     ${metaHtml ? `<div class="feed-meta run">${metaHtml}</div>` : ''}
   `;
   feedEl.prepend(el);
+  // Show unread badge on toggle button when drawer is closed on mobile
+  if (window.innerWidth <= 768 && !feedPane.classList.contains('is-open')) {
+    feedUnread++;
+    if (feedBadgeEl) feedBadgeEl.hidden = false;
+  }
   return el;
 }
 
@@ -431,8 +942,12 @@ function handle(m) {
     case 'run_start':
       Object.keys(findings).forEach(k => delete findings[k]);
       Object.keys(steps).forEach(k => delete steps[k]);
-      grid.innerHTML = '<div class="empty">Surfacing candidates…</div>';
+      grid.innerHTML = skelCards();
+      document.getElementById('findings-tbody').innerHTML =
+        '<tr class="table-empty"><td colspan="6">No data yet.</td></tr>';
       feedEl.innerHTML = '';
+      activeFilter = 'all';
+      applyFilter('all');
       updateKPIs();
       startTimer();
       feedItem('run_start', `&#x25B6; New investigation`, esc((m.question || '').slice(0, 120)));
@@ -443,14 +958,10 @@ function handle(m) {
       break;
 
     case 'step_complete': {
-      const dur = m.duration_ms != null ? `${m.duration_ms}ms` : '';
+      const dur  = m.duration_ms != null ? `${m.duration_ms}ms` : '';
       const rows = m.rows != null ? `${m.rows} rows` : '';
       const bits = [rows, dur].filter(Boolean).join(' · ');
-      if (m.is_error) {
-        updateFeedMeta(m.id, 'err', `error${bits ? ' · ' + bits : ''}`);
-      } else {
-        updateFeedMeta(m.id, 'ok', bits || 'done');
-      }
+      updateFeedMeta(m.id, m.is_error ? 'err' : 'ok', m.is_error ? `error${bits ? ' · ' + bits : ''}` : (bits || 'done'));
       break;
     }
 
@@ -488,23 +999,16 @@ function handle(m) {
       break;
 
     case 'assistant_text':
-      if (m.text && m.text.trim().length > 0) {
+      if (m.text && m.text.trim().length > 0)
         feedItem('assistant_text', esc(m.text.trim().slice(0, 180) + (m.text.length > 180 ? '…' : '')));
-      }
       break;
 
     case 'result':
       stopTimer();
-      if (runStart) {
-        const elapsed = ((Date.now() - runStart) / 1000).toFixed(1);
-        timerEl.textContent = `${elapsed}s`;
-      }
+      if (runStart) timerEl.textContent = `${((Date.now()-runStart)/1000).toFixed(1)}s`;
       feedItem('result', `&#x25CF; Run complete`,
-        [
-          m.num_turns != null ? `${m.num_turns} turns` : '',
-          m.total_cost_usd != null ? `$${m.total_cost_usd.toFixed(4)}` : '',
-        ].filter(Boolean).join(' · ')
-      );
+        [m.num_turns != null ? `${m.num_turns} turns` : '', m.total_cost_usd != null ? `$${m.total_cost_usd.toFixed(4)}` : '']
+          .filter(Boolean).join(' · '));
       break;
 
     case 'run_complete':
@@ -518,38 +1022,55 @@ function handle(m) {
   }
 }
 
+// ── Feed drawer (mobile) ───────────────────────────────────────────
+const feedPane      = document.getElementById('feed-pane');
+const feedBackdrop  = document.getElementById('feed-backdrop');
+const feedToggleBtn = document.getElementById('feed-toggle');
+const feedCloseBtn  = document.getElementById('feed-close');
+const feedBadgeEl   = document.getElementById('feed-badge');
+let feedUnread = 0;
+
+function openFeed() {
+  feedPane.classList.add('is-open');
+  feedBackdrop.classList.add('is-open');
+  feedToggleBtn.classList.add('is-open');
+  feedUnread = 0;
+  if (feedBadgeEl) feedBadgeEl.hidden = true;
+}
+
+function closeFeed() {
+  feedPane.classList.remove('is-open');
+  feedBackdrop.classList.remove('is-open');
+  feedToggleBtn.classList.remove('is-open');
+}
+
+feedToggleBtn?.addEventListener('click', () => {
+  feedPane.classList.contains('is-open') ? closeFeed() : openFeed();
+});
+feedCloseBtn?.addEventListener('click', closeFeed);
+feedBackdrop?.addEventListener('click', closeFeed);
+
+// On resize back to desktop: reset drawer state
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 768) closeFeed();
+});
+
 // ── WebSocket ──────────────────────────────────────────────────────
 const dot   = document.getElementById('dot');
 const label = document.getElementById('conn-label');
 
 function connect() {
   const ws = new WebSocket(`ws://${location.host}/ws/live`);
-
-  ws.addEventListener('open', () => {
-    dot.classList.add('live');
-    label.textContent = 'Live';
-  });
-
-  ws.addEventListener('close', () => {
-    dot.classList.remove('live');
-    label.textContent = 'Reconnecting…';
-    setTimeout(connect, 2000);
-  });
-
-  ws.addEventListener('error', () => ws.close());
-
-  ws.addEventListener('message', (ev) => {
-    try { handle(JSON.parse(ev.data)); } catch { /* ignore */ }
-  });
+  ws.addEventListener('open',    () => { dot.classList.add('live'); label.textContent = 'Live'; });
+  ws.addEventListener('close',   () => { dot.classList.remove('live'); label.textContent = 'Reconnecting…'; setTimeout(connect, 2000); });
+  ws.addEventListener('error',   () => ws.close());
+  ws.addEventListener('message', ev => { try { handle(JSON.parse(ev.data)); } catch { /**/ } });
 }
-
 connect();
 
 // ── Helpers ────────────────────────────────────────────────────────
 function esc(s) {
-  return String(s ?? '')
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;');
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 </script>
 </body>
