@@ -5,10 +5,16 @@ description: Recipe for finding federally-funded recipients that ceased operatio
 
 # Filters applied before any candidate enters consideration
 
-EXCLUDE entities where `cra.cra_identification.designation = 'A'`.
-  Designation A means private foundation. Private foundations are
-  STRUCTURALLY allowed to have low or zero operating revenue — they exist
-  to distribute funds, not to run programs. They are not zombies.
+EXCLUDE entities whose `cra.cra_identification.designation` is **A** (public
+  foundation) or **B** (private foundation). Per `CRA/CLAUDE.md`, both
+  foundation designations exist to distribute grants to other charities, not
+  to deliver programs themselves. They are STRUCTURALLY allowed to have low
+  or zero operating revenue and may carry a high `govt_share_of_rev` for
+  legitimate accounting reasons (endowment draws, government-funded grant
+  programs). The CHL "70-80% revenue dependency" flag does not interpret
+  cleanly for them. Only **designation C** (charitable organization, ~80%
+  of all charities) is investigated by default. NOTE: A is *public*, B is
+  *private* — earlier drafts of this skill had the labels swapped.
 
 EXCLUDE entities whose most recent observed `fiscal_year_end + 6 months`
   is AFTER the CRA scrape effective date. Their T3010 filing window is
@@ -20,137 +26,411 @@ EXCLUDE entities whose most recent observed `fiscal_year_end + 6 months`
 An entity that received material federal or provincial public funding and
 shows no operating signs of life afterwards. Operationalized:
 
-1. Cumulative federal funding ≥ $500K.
-2. No CRA T3010 filing in any year after the last grant.
-3. No appearance in subsequent FED grants or AB grants in 2024+.
-4. (Optional) AB corporate registry shows dissolution or status indicating
-   inactive.
-5. (Optional) Funding dependency: grants ÷ last-known total revenue >
-   70%, indicating they likely could not survive without public money.
+1. **Cumulative federal funding ≥ $1,000,000 (current commitment from
+   `fed.vw_agreement_current` — not the originals-only sum and not
+   the entity-resolved roll-up).** This is a HARD GATE. If the
+   `vw_agreement_current` total for the BN is below $1,000,000, drop the
+   candidate even if you already published it as `pending` — re-publish
+   as `refuted` with reason "below $1M material-funding threshold". The
+   $1M cutoff operationalizes CHL's "large amounts"; CHL itself does not
+   pin a number.
+2. **T3010 self-reported dissolution**: `cra_financial_general.field_1570
+   = TRUE` ("Has the charity wound-up, dissolved, or terminated
+   operations?"). This is FIRST-PARTY CHL "dissolved" evidence — the
+   charity itself reported cessation on its T3010. Strictly stronger
+   than absence-of-filing inference.
+3. **Stopped filing**: No CRA T3010 filing in any year after the last grant
+   (operationalized as `cra_identification.last_fy <= 2022` for the
+   2018–2022 funding window).
+4. **No FED/AB activity post-grant**: No appearance in subsequent FED
+   grants or AB grants in 2024+ — see the "live-agreement test" below
+   for what "appearance" means.
+5. **AB corporate registry dissolution**: `ab.ab_non_profit.status`
+   indicates dissolved, struck, inactive, or revoked. ROOT `CLAUDE.md`
+   lists this as a primary data source for this challenge. When
+   present, it satisfies CHL's "dissolved" alternative on its own —
+   independent of T3010 silence.
+6. **CHL-mandated dependency flag**: `govt_share_of_rev >= 70` on the
+   most-recent clean CRA filing (from `cra.govt_funding_by_charity` with
+   the impossibility/plausibility filters). This is the literal CHL
+   "70-80%" criterion — *required* to compute for every candidate, not
+   optional. A candidate that ceased operations AND was
+   govt-revenue-dependent is the strongest CHL form of zombie.
 
-A finding is strong when 1–3 hold; (4) and (5) make it visceral.
+A finding is strong when (1) holds AND at least one of (2, 3, 4, 5)
+holds AND (6) holds. Signal (2) is the strongest single death signal
+(first-party reported); (5) is the second strongest (registry-of-record);
+(3) is third (inferred from absence); (4) is the fallback for non-charity
+recipients without registry coverage.
+
+## Live-agreement test — disqualifies a candidate
+
+A candidate is NOT a zombie if any FED agreement is still active:
+
+  - `agreement_end_date >= '2024-01-01'` AND `agreement_end_date >=
+    agreement_start_date` on ANY row tied to the BN (the second clause
+    rejects the 947 F-9 corrupt-date rows where end < start — those are
+    publisher defects, not real live agreements), OR
+  - The latest amendment for any agreement carries `amendment_date >=
+    '2024-01-01'` (the agreement was being modified after the cutoff).
+
+Active multi-year delivery contracts that started pre-2024 but run past
+2024-01-01 fail the zombie test. They may be Challenge 2 (Ghost Capacity)
+candidates if delivery capacity is missing — but that is a different
+investigation. Refute them as zombies, do not blur the categories.
+
+## How to compute "total federal exposure (CAD)" — the dossier number
+
+For every published candidate, the `total_funding_cad` field on the
+finding card MUST equal:
+
+  - `SUM(agreement_value) FROM fed.vw_agreement_current
+     WHERE LEFT(NULLIF(recipient_business_number,''),9) = <bn_root>`.
+
+`fed.vw_agreement_current` is the canonical mitigation for both F-3
+(cumulative-amendment-double-counting) and F-1 (ref_number collisions
+across distinct recipients) — the view's own `DISTINCT ON` includes a
+recipient disambiguator, so a naïve `DISTINCT ON (ref_number)`-only CTE
+must NOT be used in its place.
+
+Do NOT compute exposure by:
+  - Summing `agreement_value` over the raw base table (F-3
+    cumulative-double-counting).
+  - Using a `DISTINCT ON (ref_number)`-only CTE without a recipient
+    disambiguator — this silently mis-attributes 41,046 colliding
+    ref_numbers (KDI F-1).
+  - Aggregating across `general.entity_source_links` to the entity (this
+    catches predecessor entities and pre-BN name variants and inflates the
+    figure — see the Acadia Centre / Northwest Inter-Nation lessons).
+
+If the BN-anchored `agreement_current` total is below $1M, the candidate
+fails Rule 1 above and must be refuted.
 
 # Investigation steps
 
-## Step A — top federal recipients with material funding
+## Step A — DETERMINISTIC candidate enumeration (one query, every gate)
 
-`fed.grants_contributions.agreement_value` is cumulative across amendments
-(see `data-quirks` F-3). Use the inline CTE pattern, NOT a naive SUM of
-the base table:
+Run this query EXACTLY as written. It returns the FULL ranked list of
+zombie candidates that pass every hard gate, sorted by total committed
+exposure descending. Same database state → same candidate list every
+run. This is the single point of candidate selection — do not author a
+different shortlist.
 
 ```sql
--- Step A: top federal recipients ≥ $1M, current commitment, 2018-2022
-WITH agreement_current AS (
-  SELECT DISTINCT ON (ref_number) *
-  FROM fed.grants_contributions
-  WHERE ref_number IS NOT NULL
-    AND agreement_end_date BETWEEN '2018-01-01' AND '2022-12-31'
-  ORDER BY ref_number,
-           amendment_date DESC NULLS LAST,
-           CASE WHEN amendment_number ~ '^[0-9]+$'
-                THEN amendment_number::int ELSE -1 END DESC,
-           _id DESC
+-- Step A: deterministic zombie candidate enumeration
+-- CHL: "Which companies and nonprofits received large amounts of public
+-- funding and then ceased operations shortly after?" — universe is broader
+-- than registered charities. Universe = every BN-anchored federal recipient
+-- 2018-2022 with cumulative commitment >= $1M, with a CHL-recognized death
+-- signal: T3010 self-reported dissolution (field_1570=TRUE) OR AB-registry
+-- dissolution OR T3010 silence (designation C only) OR no post-grant
+-- activity for non-charity recipients.
+WITH exposure AS (
+  -- Per-BN-root cumulative exposure on agreements SIGNED 2018-2022.
+  -- fed.vw_agreement_current handles F-3 (cumulative double-count) AND F-1
+  -- (ref_number collisions) by construction. $1M HARD GATE.
+  SELECT LEFT(NULLIF(recipient_business_number,''), 9) AS bn_root,
+         MIN(recipient_legal_name) AS recipient_name,
+         MIN(recipient_type)       AS recipient_type,
+         SUM(agreement_value)      AS total_committed_cad,
+         MAX(agreement_end_date)   AS latest_end_date,
+         COUNT(DISTINCT ref_number) AS n_agreements
+  FROM fed.vw_agreement_current
+  WHERE LEFT(NULLIF(recipient_business_number,''), 9) ~ '^[1-9][0-9]{8}$'
+    AND agreement_start_date BETWEEN '2018-01-01' AND '2022-12-31'
+  GROUP BY 1
+  HAVING SUM(agreement_value) >= 1000000
+),
+charity AS (
+  -- T3010 registration state per BN root. NULL via LEFT JOIN for
+  -- non-CRA-registered recipients (companies, foreign entities, etc.).
+  SELECT LEFT(bn,9) AS bn_root,
+         MAX(fiscal_year) AS last_fy,
+         MAX(designation) AS designation
+  FROM cra.cra_identification
+  GROUP BY 1
+),
+cra_self_dissolved AS (
+  -- Charities that affirmatively answered "Yes" to T3010 line A2
+  -- (field_1570 = TRUE): "Has the charity wound-up, dissolved, or
+  -- terminated operations?" This is FIRST-PARTY CHL "dissolved"
+  -- evidence — the charity itself reported cessation. Strictly stronger
+  -- than the absence-based T3010-silence signal.
+  SELECT LEFT(fg.bn, 9) AS bn_root,
+         MAX(fg.fpe)    AS dissolution_fpe
+  FROM cra.cra_financial_general fg
+  WHERE fg.field_1570 = TRUE
+  GROUP BY LEFT(fg.bn, 9)
+),
+ab_dissolved AS (
+  -- Alberta non-profits whose registry status indicates dissolved /
+  -- struck / inactive / revoked. ROOT-CLAUDE Challenge 1 row names
+  -- this as a primary data source ("ab.ab_non_profit (status=dissolved
+  -- /struck)"). This is the CHL "dissolved" death signal alongside
+  -- "stopped filing".
+  SELECT DISTINCT egr.bn_root,
+         MIN(np.legal_name) AS ab_legal_name,
+         MIN(np.status)     AS ab_status
+  FROM ab.ab_non_profit np
+  JOIN general.entity_source_links esl
+    ON esl.source_schema = 'ab'
+   AND esl.source_table  = 'ab_non_profit'
+   AND (esl.source_pk->>'id')::int = np.id
+  JOIN general.entity_golden_records egr ON egr.id = esl.entity_id
+  WHERE np.status ILIKE '%dissolved%'
+     OR np.status ILIKE '%struck%'
+     OR np.status ILIKE '%inactive%'
+     OR np.status ILIKE '%revoked%'
+  GROUP BY egr.bn_root
 )
 SELECT
-  LEFT(NULLIF(recipient_business_number,''), 9) AS bn_root,
-  recipient_legal_name,
-  SUM(agreement_value)               AS total_committed_cad,
-  MIN(agreement_start_date)          AS first_grant,
-  MAX(agreement_end_date)            AS last_grant,
-  COUNT(DISTINCT ref_number)         AS num_agreements
-FROM agreement_current
-GROUP BY 1, 2
-HAVING SUM(agreement_value) >= 1000000
-ORDER BY total_committed_cad DESC
-LIMIT 50;
+  e.bn_root,
+  e.recipient_name,
+  e.recipient_type,
+  ROUND(e.total_committed_cad::numeric/1e6, 2) AS total_M,
+  e.latest_end_date,
+  e.n_agreements,
+  c.last_fy      AS last_t3010_year,
+  c.designation,
+  d.ab_status    AS ab_dissolution_status,
+  s.dissolution_fpe AS t3010_self_dissolution_fpe,
+  -- Which CHL death signal fired (CHL: "bankrupt, dissolved, or stopped filing").
+  -- Priority: self-reported dissolution > AB-registry dissolution > T3010
+  -- silence > non-charity post-grant absence. (Bankruptcy not directly
+  -- observable; folded into "dissolved" via downstream registry events.)
+  CASE
+    WHEN s.bn_root IS NOT NULL                                               THEN 't3010_self_dissolution'
+    WHEN d.bn_root IS NOT NULL AND c.designation = 'C' AND c.last_fy <= 2022 THEN 'dissolved_and_stopped_filing'
+    WHEN d.bn_root IS NOT NULL                                               THEN 'dissolved'
+    WHEN c.designation = 'C' AND c.last_fy <= 2022                           THEN 'stopped_filing'
+    WHEN c.bn_root IS NULL                                                   THEN 'no_post_grant_activity'
+    ELSE NULL
+  END AS death_signal
+FROM exposure e
+LEFT JOIN charity            c ON c.bn_root = e.bn_root
+LEFT JOIN ab_dissolved       d ON d.bn_root = e.bn_root
+LEFT JOIN cra_self_dissolved s ON s.bn_root = e.bn_root
+WHERE
+  -- Foundations excluded: A=public, B=private; both have low operating
+  -- revenue by design and CHL's 70-80% rule does not interpret cleanly.
+  (c.designation IS NULL OR c.designation NOT IN ('A','B'))
+  -- At least one CHL-recognized death signal must fire
+  AND (
+       -- (a) T3010 self-reported dissolution (field_1570 = TRUE)
+       --     This is first-party CHL "dissolved" evidence.
+       (s.bn_root IS NOT NULL)
+       -- (b) AB non-profit registry says dissolved/struck/inactive/revoked
+       OR (d.bn_root IS NOT NULL)
+       -- (c) Stopped filing T3010 (charities, designation C)
+       OR (c.designation = 'C' AND c.last_fy <= 2022)
+       -- (d) Companies / unregistered nonprofits with no post-grant activity
+       OR (
+         c.bn_root IS NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM ab.ab_grants ag
+           JOIN general.entity_source_links esl
+             ON esl.source_schema = 'ab'
+            AND esl.source_table  = 'ab_grants'
+            AND (esl.source_pk->>'id')::int = ag.id
+           JOIN general.entity_golden_records egr ON egr.id = esl.entity_id
+           WHERE egr.bn_root = e.bn_root
+             AND ag.display_fiscal_year IN ('2024 - 2025','2025 - 2026')
+             AND ag.amount > 0
+         )
+       )
+     )
+  -- No NEW federal agreement signed in 2024+
+  AND NOT EXISTS (
+    SELECT 1 FROM fed.grants_contributions
+    WHERE LEFT(NULLIF(recipient_business_number,''),9) = e.bn_root
+      AND agreement_start_date >= '2024-01-01')
+  -- No federal AMENDMENT activity in 2024+ (agreement is dormant)
+  AND NOT EXISTS (
+    SELECT 1 FROM fed.grants_contributions
+    WHERE LEFT(NULLIF(recipient_business_number,''),9) = e.bn_root
+      AND amendment_date >= '2024-01-01')
+ORDER BY e.total_committed_cad DESC;
 ```
 
-A simpler, almost-as-correct approximation when you don't need the
-absolute peak number is to filter `WHERE is_amendment = false` (originals
-only). That gives initial-commitment dollars.
+This query enforces:
+1. **$1M hard gate** via `HAVING SUM(...) >= 1000000`. The threshold is an
+   operationalization of CHL's "large amounts" — not in CHL itself.
+2. **2018–2022 commitment window** via `agreement_start_date BETWEEN`. This
+   is a runtime convenience (the agent expects to observe at least 1.5
+   years of post-grant behavior); CHL itself doesn't pin a window. The
+   per-candidate "within 12 months of receiving funding" (CHL) is
+   approximated by combining this window with `last_fy <= 2022`.
+3. **CHL-faithful universe**: `LEFT JOIN` to charity table — companies
+   AND nonprofits both pass (CHL: "*companies and nonprofits*"). KDI F-7
+   note: 16.3% of `recipient_type='N'` rows have missing BN; those are
+   excluded by the `^[1-9][0-9]{8}$` BN format guard. Resolving them via
+   name+entity matching is out of scope for this single deterministic
+   query.
+4. **Foundations excluded**: `designation NOT IN ('A','B')`. A is public
+   foundation, B is private foundation. Both have structurally low
+   operating revenue.
+5. **CHL death signals (one of three required)**:
+   - `stopped_filing`: charity (designation C) with `last_fy <= 2022`
+   - `dissolved`: BN appears in `ab.ab_non_profit` with a dissolution-
+     equivalent status
+   - `no_post_grant_activity`: non-CRA recipient with no AB grants
+     2024-25/2025-26 (the negative-amount filter neutralizes A-6 reversals)
+6. **No new federal commitments in 2024+** (`agreement_start_date`).
+7. **No federal amendment activity in 2024+** (`amendment_date`). An
+   agreement still being amended after the cutoff means the relationship
+   is alive — REFUTED.
 
-## Step B — which of those still file T3010 in 2023 or 2024?
+Running this query produces the deterministic candidate list. The
+ordering is determined by `total_committed_cad DESC`, so when we surface
+the top N, we always show the biggest verified zombies.
 
-Per-org join on the 9-digit BN root:
+## Step B — verify EVERY candidate, then sort verified by $ desc
+
+The orchestrator delegates each candidate from Step A to the verifier
+subagent for an independent paranoid cross-check. Then surface the
+verified ones in $-descending order.
+
+If Step A returns more than 5 candidates, you may cap verification at
+the top 10 by total_committed_cad to bound runtime — but if it returns
+≤ 5, verify all of them.
+
+## Step C — Alberta liveness (per candidate)
+
+For each candidate from Step A, also check Alberta payments. The deterministic
+gate above is FED-only; the AB liveness signal is a secondary refinement.
 
 ```sql
--- Step B: drop candidates with any 2023+ CRA filing
-SELECT c.bn_root, c.recipient_legal_name, c.total_committed_cad
-FROM <step_a_candidates> c
-LEFT JOIN cra.cra_identification ci
-  ON LEFT(ci.bn, 9) = c.bn_root
- AND ci.fiscal_year IN (2023, 2024)
-WHERE ci.bn IS NULL;
-```
-
-For candidates without a BN, resolve through
-`general.entity_golden_records.aliases` instead.
-
-## Step C — also check no FED or AB grants in 2024+
-
-```sql
--- Step C: any further FED grants in 2024+?
-SELECT COUNT(*) FROM fed.grants_contributions
-WHERE LEFT(NULLIF(recipient_business_number,''), 9) = $1
-  AND agreement_start_date >= '2024-01-01';
-```
-
-```sql
--- Step C': any further AB payments in FY 2024-25 / 2025-26?
-SELECT COUNT(*) AS n_payments,
-       COALESCE(SUM(amount),0) AS total_amount
+-- Step C: any AB payments in FY 2024-25 / 2025-26?
+-- Alberta fiscal year runs April 1 → March 31; display_fiscal_year is the
+-- canonical "YYYY - YYYY" label (e.g. "2024 - 2025" = 2024-04-01 → 2025-03-31).
+-- KDI A-6 / A-13: 50K negative reversal rows + 5.5K exact duplicates +
+-- 951 perfect-reversal pairs in the AB CSV years. Filter `amount > 0` so
+-- a refund-pair doesn't masquerade as a "live" payment.
+SELECT COUNT(*) FILTER (WHERE ag.amount > 0) AS n_positive_payments,
+       COALESCE(SUM(ag.amount) FILTER (WHERE ag.amount > 0), 0) AS gross_paid,
+       COALESCE(SUM(ag.amount), 0)                              AS net_paid
 FROM ab.ab_grants ag
 JOIN general.entity_source_links esl
   ON esl.source_schema = 'ab'
  AND esl.source_table  = 'ab_grants'
  AND (esl.source_pk->>'id')::int = ag.id
-WHERE esl.entity_id = $1
+JOIN general.entity_golden_records egr ON egr.id = esl.entity_id
+WHERE egr.bn_root = $1
   AND ag.display_fiscal_year IN ('2024 - 2025', '2025 - 2026');
 ```
+
+The candidate is REFUTED as a zombie when `n_positive_payments > 0` AND
+`net_paid` is materially non-zero (e.g. > $1,000 to allow for small
+admin reversals). If `gross_paid > 0` but `net_paid` is near zero, the
+"payments" netted out to a wash — that is itself a structurally weird
+signal and should be flagged in `evidence_summary`, not silently treated
+as either zombie or alive.
 
 ## Step D — resolve to canonical entity
 
 Look each surviving candidate up in `general.vw_entity_funding` so you
-have one canonical name, every alias, and a single rolled-up funding
-total across schemas.
+have one canonical name, every alias, and the cross-dataset roll-up
+(useful for the briefing card body). NOTE: `total_funding_cad` on the
+finding card must still come from the BN-anchored `agreement_current`
+total computed in Step A — do NOT replace it with the entity-resolved
+roll-up.
 
-## Step E — funding dependency
+## Step E — funding dependency (REQUIRED, not optional)
 
-For BN-bearing candidates with at least one CRA filing year, compute
-govt-share-of-revenue:
+CHL line 15: *"Flag entities where public funding makes up more than 70-80%
+of total revenue, meaning they likely could not survive without it."* This
+is a **CHL-mandated reportable signal**, not a nice-to-have. Compute it
+for every candidate and surface it on the finding card.
+
+Use the pre-computed `cra.govt_funding_by_charity` table directly. It
+ships per-`(bn, fiscal_year)` `total_govt`, `revenue`, and
+`govt_share_of_rev` (0–100), already grouped from `cra_financial_details`.
+**Important caveat:** the build script does NOT filter
+`cra.t3010_impossibilities` upstream — apply the filter yourself when
+querying so a $5B-typo year doesn't poison the ratio.
+
 ```sql
-SELECT bn, fpe,
-       (COALESCE(field_4540,0) + COALESCE(field_4570,0)) AS govt_revenue,
-       field_4700                                        AS total_revenue,
-       CASE WHEN field_4700 > 0
-            THEN (COALESCE(field_4540,0) + COALESCE(field_4570,0))::float
-                 / field_4700
-       END AS govt_share
-FROM cra.cra_financial_details fd
-WHERE LEFT(bn, 9) = $1
+-- Step E: govt-share-of-revenue from the pre-computed table, with
+-- impossibility-row exclusion applied at query time (the build script
+-- doesn't pre-filter these).
+SELECT gfc.bn,
+       gfc.fiscal_year,
+       gfc.total_govt,
+       gfc.revenue,
+       gfc.govt_share_of_rev      -- percent, 0-100
+FROM cra.govt_funding_by_charity gfc
+WHERE LEFT(gfc.bn, 9) = $1
   AND NOT EXISTS (
     SELECT 1 FROM cra.t3010_impossibilities ti
-    WHERE ti.bn = fd.bn AND ti.fpe = fd.fpe
+    WHERE ti.bn = gfc.bn
+      AND EXTRACT(YEAR FROM ti.fpe)::int = gfc.fiscal_year
   )
-ORDER BY fpe DESC LIMIT 1;
+  AND NOT EXISTS (
+    SELECT 1 FROM cra.t3010_plausibility_flags pf
+    WHERE pf.bn = gfc.bn
+      AND EXTRACT(YEAR FROM pf.fpe)::int = gfc.fiscal_year
+      AND pf.rule_code = 'PLAUS_MAGNITUDE_OUTLIER'
+  )
+ORDER BY gfc.fiscal_year DESC
+LIMIT 2;
 ```
 
-A `govt_share > 0.7` is an unsubtle dependency signal.
+Treat the candidate as **dependency-flagged** when
+`govt_share_of_rev >= 70` on the most recent clean filing. Surface this
+as a boolean `dependency_flag` plus the literal percentage on the
+briefing card. Foundations (designation A and B) were already excluded
+upstream, so the result reflects designation C charitable organizations
+whose accounting is straightforward.
 
-## Step F — publish (pending)
+If the candidate has NO row in `cra.govt_funding_by_charity` (charities
+with zero recorded govt revenue across 2020-2024 are simply absent from
+the table by design — see `08-government-funding-analysis.js`), report
+`dependency_flag=false` and `govt_share_of_rev=NULL`. That is itself
+informative: a candidate flagged as a zombie that never reported any
+govt revenue on its T3010 is a different kind of lead worth surfacing.
 
-For each of your top 3-5 candidates, call
-`mcp__ui_bridge__publish_finding` with:
-- `entity_name`, `bn` (9-digit root), `total_funding_cad`,
-  `last_known_year`, `govt_dependency_pct` (0.0 if unknown),
-  `evidence_summary` (audit-lead language),
-  `verifier_status="pending"`,
-  `sql_trail` (the labels of the queries that produced it).
+## Step F — publish (pending) for EVERY surviving candidate
 
-## Step G — handle challenges
+For each candidate that passed Step A's deterministic gate AND Step C's
+AB liveness check, call `mcp__ui_bridge__publish_finding` with:
+- `entity_name`, `bn` (9-digit root),
+- `total_funding_cad` = BN-anchored `fed.vw_agreement_current` total from
+  Step A (column `total_M * 1_000_000`). **Do NOT use entity-resolved
+  roll-ups for this number.** Acadia/Northwest Inter-Nation lessons.
+- `last_known_year` = `last_t3010_year` from Step A (or, if the death
+  signal is AB dissolution rather than T3010 silence, the year derived
+  from the dissolution event),
+- `govt_dependency_pct` from Step E — REQUIRED to compute for every
+  candidate. Pass the percentage on the most recent clean filing. If the
+  candidate has no row in `cra.govt_funding_by_charity` (no recorded
+  govt revenue), pass `0.0` and call this out explicitly in
+  `evidence_summary` text: "no govt revenue recorded on T3010 — CHL 70-80%
+  flag does not apply".
+- `evidence_summary` — audit-lead language. **Required content**:
+    1. which death signal fired — `t3010_self_dissolution`
+       (field_1570=TRUE; first-party), `dissolved` (AB registry status),
+       `dissolved_and_stopped_filing` (both), `stopped_filing` (T3010
+       silence), or `no_post_grant_activity` (non-charity recipient);
+    2. whether the CHL 70-80% revenue-dependency flag is satisfied
+       (`govt_dependency_pct >= 70`) and on which fiscal year, OR
+       "no govt revenue recorded on T3010 — flag does not apply" if
+       the candidate has no row in `cra.govt_funding_by_charity`;
+    3. one-sentence summary of the federal-funding profile (year range,
+       department count).
+- `verifier_status="pending"`,
+- `sql_trail` (the labels of the queries that produced it).
 
-Spawn the verifier subagent with the candidate list. It returns
-VERIFIED / REFUTED / AMBIGUOUS per candidate. Update via
+Publish ALL surviving candidates as `pending`, not just the top 3.
+Verification + final ranking happens in Step G.
+
+## Step G — verify, sort, finalize
+
+Spawn the verifier subagent ONCE with the FULL candidate list from Step
+F (cap at top 10 by `total_committed_cad` if Step A returned more than
+10 — but for the canonical zombie demo we expect ≤ 5 so all should fit).
+
+The verifier returns VERIFIED / REFUTED / AMBIGUOUS per candidate plus
+a JSON block summarizing all verdicts. Update each finding via
 `publish_finding`:
 - VERIFIED   → `verifier_status="verified"`
 - REFUTED    → `verifier_status="refuted"`
@@ -158,16 +438,53 @@ VERIFIED / REFUTED / AMBIGUOUS per candidate. Update via
                SQL queries to defend or revise, then publish a final
                `"verified"` or `"refuted"`.
 
+Final briefing order is **sorted by `total_funding_cad` DESCENDING
+among VERIFIED candidates only**. The deterministic gate produces a
+stable input set; the verifier produces a stable verdict per candidate
+(modulo small LLM sampling); the final sort gives the same top-N
+biggest verified zombies on every run.
+
+Refuted and challenged-then-refuted candidates remain visible on the
+briefing panel as a record of the methodology — they show the verifier
+caught structural special-cases (designation A, live agreement, sub-$1M
+exposure, etc.).
+
 # Pitfalls
 
 - Do not naïvely `SUM(agreement_value)` over `fed.grants_contributions` —
-  use the inline CTE or `WHERE is_amendment = false`. (F-3)
+  use `fed.vw_agreement_current` (handles F-3 cumulative-amendment
+  double-counting AND F-1 ref_number-collision disambiguation by
+  construction).
+- Do NOT use a `DISTINCT ON (ref_number)`-only CTE in place of the view —
+  it silently mis-attributes the 41,046 colliding ref_numbers (KDI F-1).
+  The view's `DISTINCT ON` includes a recipient disambiguator.
+- **Do not compute `total_funding_cad` by aggregating across entity
+  source links.** The entity-resolution path catches predecessor entities
+  and pre-BN name variants; summing those will inflate the figure
+  dramatically (lesson from Northwest Inter-Nation = $101.79M aggregate
+  vs. ~$11.7M true current commitment, and Acadia Centre where pre-BN
+  variants padded $0.88M up to $6.65M).
+- **Do not let a sub-$1M candidate through.** $0.947M is not "$1M-ish".
+  If `vw_agreement_current` total is below the gate, refute.
+- **Do not treat a multi-year agreement that ends after 2024-01-01 as
+  compatible with a zombie pattern.** That agreement is ALIVE — even if
+  no new agreements have started, the entity is still a delivery
+  counterparty to the federal government. Refute and consider whether
+  it's actually a Challenge 2 (Ghost Capacity) lead instead.
 - Do not assume `recipient_business_number` is a clean 9-digit string;
   trim and use `LEFT(NULLIF(...,''),9)`.
-- Do not skip `cra.t3010_impossibilities` filtering when computing
-  `govt_share`.
+- Do not re-derive `govt_share` from raw `field_4540 / field_4700` — query
+  `cra.govt_funding_by_charity` instead. It is grouped per `(bn,
+  fiscal_year)` already. NOTE: it does NOT pre-filter
+  `cra.t3010_impossibilities`; you must add a `NOT EXISTS` filter
+  yourself to avoid impossibility-row pollution (Step E shows the
+  pattern).
 - An entity that received funding in 2022 and last filed T3010 with
   `fpe = 2023-12-31` is NOT a zombie — that's normal.
-- Designation A foundations are excluded by default (top of skill).
+- Both Designation A (public) and B (private) foundations are excluded
+  by default (top of skill). Do not confuse the labels.
 - Filing window must be closed before "no recent filing" counts (see
   `data-quirks`).
+- Filter A-6 reversals (`amount > 0`) and F-9 corrupt-date pairs
+  (`agreement_end_date >= agreement_start_date`) before treating any row
+  as a "live" signal.
