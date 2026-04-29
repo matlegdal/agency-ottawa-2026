@@ -1,0 +1,23 @@
+{
+  "name": "ai-for-accountability-charstat",
+  "version": "0.1.0",
+  "description": "CRA Charity Registration Status pipeline (zombie-agent augmentation): Registered/Revoked/Annulled/Suspended with effective dates",
+  "main": "scripts/01-migrate.js",
+  "scripts": {
+    "migrate": "node scripts/01-migrate.js",
+    "import": "node scripts/02-import.js",
+    "verify": "node scripts/03-verify.js",
+    "drop": "node scripts/drop.js",
+    "setup": "npm run migrate && npm run import && npm run verify",
+    "reset": "npm run drop && npm run setup"
+  },
+  "dependencies": {
+    "csv-parse": "^5.5.6",
+    "dotenv": "^16.3.1",
+    "pg": "^8.11.3",
+    "pg-copy-streams": "^7.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
