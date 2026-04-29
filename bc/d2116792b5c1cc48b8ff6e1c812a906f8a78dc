@@ -1,0 +1,27 @@
+LOBBY/package.json
+  28f87edc23e64bc1 7,12
+LOBBY/scripts/00-unzip.js
+  28f87edc23e64bc1 1-47
+LOBBY/CLAUDE.md
+  28f87edc23e64bc1 35-37,39,44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "bcd2116792b5c1cc48b8ff6e1c812a906f8a78dc",
+  "prompts": {
+    "28f87edc23e64bc1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "799948d2-73f7-476e-a3fa-fcb825869e71",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mathieu Léger-Dalcourt",
+      "messages": [],
+      "total_additions": 54,
+      "total_deletions": 3,
+      "accepted_lines": 60,
+      "overriden_lines": 0
+    }
+  }
+}
