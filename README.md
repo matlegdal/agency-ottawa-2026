@@ -18,7 +18,9 @@ A judge types a question like *"Find federal recipients that received over $1M a
 6. A **per-candidate dossier** populate alongside each verified card with the templated headline, the full SQL trail, and links back to the underlying tables.
 7. A **publishable briefing** ready to download once the run completes.
 
-Total runtime ~75–120 seconds against the live database.
+![zombie_agent_dashboard.png](zombie_agent_dashboard.png)
+
+![zombie_agent_details.png](zombie_agent_details.png)
 
 ## Architecture
 
