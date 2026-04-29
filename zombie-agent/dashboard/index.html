@@ -1022,7 +1022,8 @@ function setView(v) {
 const grid = document.getElementById('cards-grid');
 
 // Card interactive toggles (evidence expand + dossier section toggles)
-grid.addEventListener('click', e => {
+// Delegated at document level so they also work inside table detail rows.
+document.addEventListener('click', e => {
   // Evidence "More / Less" toggle
   const evBtn = e.target.closest('.card-ev-toggle');
   if (evBtn) {
@@ -1038,6 +1039,32 @@ grid.addEventListener('click', e => {
   const dsBtn = e.target.closest('.ds-title');
   if (dsBtn && !dsBtn.classList.contains('always-open') && dsBtn.tagName === 'BUTTON') {
     dsBtn.classList.toggle('open');
+  }
+});
+
+// Table row expand/collapse
+document.getElementById('findings-tbody').addEventListener('click', e => {
+  const row = e.target.closest('tr.tr-data');
+  if (!row) return;
+  const bn = row.dataset.bn;
+  const isExpanded = row.classList.contains('tr-expanded');
+
+  // Collapse existing detail sibling if present
+  const next = row.nextElementSibling;
+  if (next?.classList.contains('tr-detail')) next.remove();
+
+  if (!isExpanded) {
+    row.classList.add('tr-expanded');
+    const finding = findings[bn];
+    if (finding) {
+      const dossier   = dossiers[bn] || null;
+      const detailRow = document.createElement('tr');
+      detailRow.className = 'tr-detail';
+      detailRow.innerHTML = `<td colspan="6">${renderRowDetail(finding.data, dossier)}</td>`;
+      row.insertAdjacentElement('afterend', detailRow);
+    }
+  } else {
+    row.classList.remove('tr-expanded');
   }
 });
 
@@ -1064,9 +1091,9 @@ function syncTable() {
     const amtFmt = amt >= 1e6 ? `$${(amt/1e6).toFixed(2)}M` : amt >= 1e3 ? `$${(amt/1e3).toFixed(0)}K` : `$${amt.toFixed(0)}`;
     const dep    = m.govt_dependency_pct > 0 ? `${(m.govt_dependency_pct*100).toFixed(0)}%` : '—';
     const dept   = esc(m.last_dept || '—');
-    return `<tr data-status="${status}">
+    return `<tr class="tr-data" data-bn="${esc(m.bn||'')}" data-status="${status}">
       <td class="td-name">${esc(name)}<div class="td-bn">${esc(m.bn || '')}</div></td>
-      <td class="td-amount right">${amtFmt}</td>
+      <td class="td-amount">${amtFmt}</td>
       <td class="td-dept">${dept}</td>
       <td class="td-year td-center">${m.last_known_year || '—'}</td>
       <td class="td-center"><span class="pill ${status}">${status}</span></td>
@@ -1176,6 +1203,22 @@ function renderDossier(d) {
       `<div class="overhead-line">Admin + fundraising: <span class="o-pct">${pct}%</span> of revenue (${ovh} overhead vs ${prog} programs).</div>`));
   }
   return sections.join('');
+}
+
+function renderRowDetail(m, dossier) {
+  const headlineText = dossier?.headline || m.headline || '';
+  const headline  = headlineText ? `<div class="tr-detail-headline">${esc(headlineText)}</div>` : '';
+  const evFull    = (m.evidence_summary || '').trim();
+  const evNotes   = (m.verifier_notes  || '').trim();
+  const evidence  = [
+    evFull  ? `<div class="tr-detail-evidence">${esc(evFull)}</div>`          : '',
+    evNotes ? `<div class="tr-detail-verdict">${esc(evNotes)}</div>`           : '',
+  ].filter(Boolean).join('');
+  const dosHTML = dossier ? renderDossier(dossier) : '';
+  return `<div class="tr-detail-inner">
+    <div class="tr-detail-main">${headline}${evidence || '<span style="color:var(--muted2);font-style:italic;font-size:12px">No evidence recorded yet.</span>'}</div>
+    ${dosHTML ? `<div class="tr-detail-dossier">${dosHTML}</div>` : ''}
+  </div>`;
 }
 
 function renderUniverse(m) {
