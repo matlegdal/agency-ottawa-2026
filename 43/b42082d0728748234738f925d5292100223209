@@ -1,0 +1,49 @@
+plans/zombie_agent_web_presence_addendum.md
+  28f87edc23e64bc1 1-441
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "43b42082d0728748234738f925d5292100223209",
+  "prompts": {
+    "0179961124f059f5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "65dd8466-61c0-4413-806c-d53377e14e0e",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mathieu Léger-Dalcourt",
+      "messages": [],
+      "total_additions": 1293,
+      "total_deletions": 101,
+      "accepted_lines": 898,
+      "overriden_lines": 0
+    },
+    "28f87edc23e64bc1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "799948d2-73f7-476e-a3fa-fcb825869e71",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mathieu Léger-Dalcourt",
+      "messages": [],
+      "total_additions": 441,
+      "total_deletions": 0,
+      "accepted_lines": 444,
+      "overriden_lines": 0
+    },
+    "d5c19ad1d966640b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40a5e071-7754-48cc-8eb5-83a79fe348b3",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mathieu Léger-Dalcourt",
+      "messages": [],
+      "total_additions": 622,
+      "total_deletions": 798,
+      "accepted_lines": 569,
+      "overriden_lines": 0
+    }
+  }
+}
