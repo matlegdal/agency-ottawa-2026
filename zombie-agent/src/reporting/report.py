@@ -53,13 +53,22 @@ _STATUS_COLOURS = {
 }
 
 
+_STATUS_DISPLAY = {
+    "verified": "AI Verified",
+    "challenged": "Challenged",
+    "pending": "Pending",
+    "refuted": "Refuted",
+}
+
+
 def _pill(status: str) -> str:
     border_c, bg, fg = _STATUS_COLOURS.get(status, ("#9CA3AF", "#F3F4F6", "#374151"))
+    label = _STATUS_DISPLAY.get(status, status.capitalize())
     return (
         f'<span style="display:inline-block;padding:2px 10px;border-radius:999px;'
         f"font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;"
         f"background:{bg};color:{fg};border:1px solid {border_c}20;"
-        f'">{_e(status)}</span>'
+        f'">{_e(label)}</span>'
     )
 
 
@@ -517,7 +526,7 @@ def _summary_bar(findings: dict) -> str:
                 f'font-size:12px;font-weight:500;color:#111827;">'
                 f'<span style="width:8px;height:8px;border-radius:50%;background:{colour};'
                 f'display:inline-block;"></span>'
-                f"{counts[st]} {st.capitalize()}</span>"
+                f"{counts[st]} {_STATUS_DISPLAY.get(st, st.capitalize())}</span>"
             )
 
     return (
@@ -563,10 +572,10 @@ def _executive_brief(findings: dict, universe: dict) -> str:
     lead_verb = "lead was" if n_verified == 1 else "leads were"
     verified_line = (
         f"<strong>{n_verified} {lead_verb} independently "
-        f"verified</strong>, representing a combined {_fmt_cad(verified_funding)} in committed "
+        f"AI verified</strong>, representing a combined {_fmt_cad(verified_funding)} in committed "
         f"federal funding to organizations that no longer appear active on the public record."
         if n_verified > 0
-        else "No leads have been independently verified yet."
+        else "No leads have been AI verified yet."
     )
 
     cand_verb = "candidate was" if n_refuted == 1 else "candidates were"
@@ -609,7 +618,7 @@ def _methodology_box() -> str:
         "year-end to file. The 2024 filing window may still be open — entities in that "
         "window are excluded from the candidate list and will appear as Refuted if surfaced.<br><br>"
         "<strong>Status meanings:</strong> "
-        "<em>Verified</em> — both the primary investigator and the independent verifier "
+        "<em>AI Verified</em> — both the primary investigator and the independent verifier "
         "confirmed the zombie signal. "
         "<em>Challenged</em> — initially flagged, contested by the verifier, then "
         "re-examined and re-confirmed. "
@@ -718,7 +727,7 @@ p{{font-size:13px;}}
     )
     if not verified_html:
         verified_html = (
-            '<p style="font-size:13px;color:#9CA3AF;font-style:italic;">No verified leads.</p>'
+            '<p style="font-size:13px;color:#9CA3AF;font-style:italic;">No AI verified leads.</p>'
         )
 
     # ── Challenged cards ─────────────────────────────────────────────
@@ -830,7 +839,7 @@ body {{
   {_methodology_box()}
 
   <!-- Verified leads -->
-  {_section_header("Verified Audit Leads")}
+  {_section_header("AI Verified Audit Leads")}
   {verified_html}
 
   {challenged_html}
