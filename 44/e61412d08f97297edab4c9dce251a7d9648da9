@@ -1,0 +1,14 @@
+README.md
+  h_fee09a067fd833 21-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "44e61412d08f97297edab4c9dce251a7d9648da9",
+  "prompts": {},
+  "humans": {
+    "h_fee09a067fd833": {
+      "author": "Mathieu Léger-Dalcourt"
+    }
+  }
+}
