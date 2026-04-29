@@ -367,6 +367,42 @@
       letter-spacing: .04em; text-transform: uppercase;
     }
 
+    /* ── CORP / PA evidence chips ───────────────────────────── */
+    .corp-chip {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 1px 6px; border-radius: 4px;
+      font-size: 10px; font-weight: 600; white-space: nowrap; align-self: flex-start;
+    }
+    .corp-chip.active      { background: #D1FAE5; color: #047857; }
+    .corp-chip.dissolved   { background: #FEE2E2; color: var(--bad); }
+    .corp-chip.pending-diss{ background: #FEF3C7; color: #92400E; }
+    .corp-chip.amalgamated { background: #EDE9FE; color: #5B21B6; }
+    .corp-chip.unknown     { background: var(--panel2); color: var(--muted); border: 1px solid var(--line); }
+    .pa-chip {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 1px 6px; border-radius: 4px;
+      font-size: 10px; font-weight: 600; align-self: flex-start;
+      background: #EFF6FF; color: #1D4ED8; white-space: nowrap;
+    }
+
+    /* ── CORP timeline (dossier section) ────────────────────── */
+    .corp-timeline { display: flex; flex-direction: column; gap: 4px; }
+    .ct-row {
+      display: flex; align-items: baseline; gap: 8px;
+      font-size: 11px; padding: 3px 0;
+    }
+    .ct-date { color: var(--muted2); font-variant-numeric: tabular-nums; flex-shrink: 0; width: 80px; }
+    .ct-label { flex: 1; color: var(--fg); }
+    .ct-row.ct-current .ct-label { font-weight: 600; }
+    .ct-kind { font-size: 10px; color: var(--muted2); text-transform: uppercase; letter-spacing: .05em; }
+
+    /* ── PA payments (dossier section) ─────────────────────── */
+    .pa-rows { display: flex; flex-direction: column; gap: 3px; }
+    .pa-row { display: flex; align-items: baseline; gap: 8px; font-size: 11px; }
+    .pa-fy  { color: var(--muted2); flex-shrink: 0; width: 44px; font-variant-numeric: tabular-nums; }
+    .pa-dept{ flex: 1; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pa-amt { font-weight: 700; color: var(--bad); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
     .card-appear { animation: card-in .3s ease-out; }
     @keyframes card-in { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: none; } }
 
@@ -793,7 +829,7 @@
         <span class="legend-item l-verified">
           <span class="ldot"></span>
           <span class="legend-count" id="kpi-verified">0</span>
-          <span class="legend-label">Verified</span>
+          <span class="legend-label">AI Verified</span>
         </span>
         <span class="legend-sep"></span>
         <span class="legend-item l-challenged">
@@ -827,7 +863,7 @@
           All <span class="tab-badge" id="tab-n-all">0</span>
         </button>
         <button class="tab" data-filter="verified">
-          ✓ Verified <span class="tab-badge" id="tab-n-verified">0</span>
+          ✓ AI Verified <span class="tab-badge" id="tab-n-verified">0</span>
         </button>
         <button class="tab" data-filter="challenged">
           ! Challenged <span class="tab-badge" id="tab-n-challenged">0</span>
@@ -1096,7 +1132,7 @@ function syncTable() {
       <td class="td-amount">${amtFmt}</td>
       <td class="td-dept">${dept}</td>
       <td class="td-year td-center">${m.last_known_year || '—'}</td>
-      <td class="td-center"><span class="pill ${status}">${status}</span></td>
+      <td class="td-center"><span class="pill ${status}">${status === 'verified' ? 'AI verified' : status}</span></td>
       <td class="td-right">${dep}</td>
     </tr>`;
   }).join('');
@@ -1202,6 +1238,34 @@ function renderDossier(d) {
     sections.push(dsSection(`Overhead — FY ${oh.fiscal_year}`,
       `<div class="overhead-line">Admin + fundraising: <span class="o-pct">${pct}%</span> of revenue (${ovh} overhead vs ${prog} programs).</div>`));
   }
+  // CORP timeline (optional — present when Step A matched a corp record)
+  const ctRows = Array.isArray(d.corp_timeline) ? d.corp_timeline : [];
+  if (ctRows.length) {
+    const ctHtml = `<div class="corp-timeline">${ctRows.map(r => `
+      <div class="ct-row${r.is_current ? ' ct-current' : ''}">
+        <span class="ct-date">${esc(r.event_date ? String(r.event_date).slice(0,10) : '—')}</span>
+        <span class="ct-label">${esc(r.label || '—')}</span>
+        <span class="ct-kind">${esc(r.kind || '')}</span>
+      </div>`).join('')}</div>`;
+    sections.push(dsSection(`Corp registry (${ctRows.length} events)`, ctHtml));
+  }
+
+  // PA payments (optional — present when Step A matched a PA record)
+  const paRows = Array.isArray(d.pa_payments) ? d.pa_payments : [];
+  if (paRows.length) {
+    const paHtml = `<div class="pa-rows">${paRows.map(r => {
+      const amt = r.paid_cad != null
+        ? `$${Number(r.paid_cad) >= 1e6 ? (r.paid_cad/1e6).toFixed(2)+'M' : Number(r.paid_cad).toLocaleString()}`
+        : '—';
+      return `<div class="pa-row">
+        <span class="pa-fy">${esc(String(r.fiscal_year_end || '—'))}</span>
+        <span class="pa-dept">${esc(r.department_name || '—')}</span>
+        <span class="pa-amt">${amt}</span>
+      </div>`;
+    }).join('')}</div>`;
+    sections.push(dsSection(`Public Accounts payments (${paRows.length})`, paHtml));
+  }
+
   return sections.join('');
 }
 
@@ -1279,8 +1343,9 @@ function renderCard(el, m, dossier) {
   const amt    = m.total_funding_cad || 0;
   const amtFmt = amt >= 1e6 ? `$${(amt/1e6).toFixed(2)}M` : amt >= 1e3 ? `$${(amt/1e3).toFixed(0)}K` : `$${amt.toFixed(0)}`;
 
-  const statusIcons = { verified: '✓', challenged: '!', pending: '○', refuted: '✗' };
-  const chipIcon    = statusIcons[status] || '○';
+  const statusIcons  = { verified: '✓', challenged: '!', pending: '○', refuted: '✗' };
+  const statusLabels = { verified: 'AI verified', challenged: 'challenged', pending: 'pending', refuted: 'refuted' };
+  const chipIcon     = statusIcons[status] || '○';
 
   // Headline — narrative subtitle, italic muted
   const headlineText = dossier?.headline || m.headline || '';
@@ -1290,6 +1355,30 @@ function renderCard(el, m, dossier) {
   // Meta row: BN chip + last active + dep% (only when >60%)
   const dep = m.govt_dependency_pct > 0.6
     ? `<span class="card-dep">${(m.govt_dependency_pct*100).toFixed(0)}% govt</span>` : '';
+
+  // CORP registry chip (present when Step A pre-enrich matched a CORP row)
+  const corpChip = (() => {
+    const code = m.corp_status_code;
+    if (code == null) return '';
+    const label = m.corp_status_label || `Status ${code}`;
+    const diss  = m.corp_dissolution_date || m.corp_status_date || '';
+    const date  = diss ? ` · ${diss.slice(0, 7)}` : '';
+    const cls   = code === 1 ? 'active'
+                : code === 11 ? 'dissolved'
+                : code === 3  ? 'pending-diss'
+                : code === 9  ? 'amalgamated'
+                : 'unknown';
+    return `<span class="corp-chip ${cls}" title="${esc(label)}">${cls === 'dissolved' ? '✗' : cls === 'active' ? '✓' : '!'} CORP${date}</span>`;
+  })();
+
+  // PA audited-cash chip (present when pa_last_year / pa_total_paid_cad in event)
+  const paChip = (() => {
+    const yr  = m.pa_last_year;
+    const amt = m.pa_total_paid_cad;
+    if (yr == null && amt == null) return '';
+    const amtStr = amt != null ? ` $${Number(amt) >= 1e6 ? (amt/1e6).toFixed(1)+'M' : Number(amt).toLocaleString()}` : '';
+    return `<span class="pa-chip" title="Audited Public Accounts">PA${amtStr}${yr ? ` · ${yr}` : ''}</span>`;
+  })();
 
   // Collapsible evidence + verdict
   const evFull    = (m.evidence_summary || '').trim();
@@ -1317,8 +1406,10 @@ function renderCard(el, m, dossier) {
     <div class="card-identity">
       <div class="card-name">${esc(name)}</div>
       <span class="card-amount">${amtFmt}</span>
-      <span class="status-chip ${status}">${chipIcon} ${status}</span>
+      ${status !== 'verified' ? `<span class="status-chip ${status}">${chipIcon} ${statusLabels[status] || status}</span>` : ''}
       ${dep}
+      ${corpChip}
+      ${paChip}
       ${m.bn ? `<span class="card-bn-chip">${esc(m.bn)}</span>` : ''}
       ${m.last_known_year ? `<span class="card-meta">last active ${m.last_known_year}</span>` : ''}
     </div>
@@ -1372,7 +1463,10 @@ function formatDetail(raw) {
       const name = raw.entity_name || raw.name || raw.legal_name || raw.recipient_legal_name || '';
       if (name)                    row('Entity', esc(name));
       if (raw.bn)                  row('BN', esc(raw.bn));
-      if (raw.verifier_status)     row('Status', `<span class="pill ${esc(raw.verifier_status)}">${esc(raw.verifier_status)}</span>`);
+      if (raw.verifier_status) {
+        const sLabel = raw.verifier_status === 'verified' ? 'AI verified' : raw.verifier_status;
+        row('Status', `<span class="pill ${esc(raw.verifier_status)}">${esc(sLabel)}</span>`);
+      }
       if (raw.total_funding_cad) {
         const a = raw.total_funding_cad;
         row('Funding', esc(a >= 1e6 ? `$${(a/1e6).toFixed(2)}M` : a >= 1e3 ? `$${(a/1e3).toFixed(0)}K` : `$${a.toFixed(0)}`));
@@ -1510,7 +1604,7 @@ function handle(m) {
       upsertCard(m);
       feedItem('finding',
         `&#x25A6; Finding: ${esc(m.entity_name || m.name || m.legal_name || m.recipient_legal_name || '(unknown)')}`,
-        `status → <strong>${m.verifier_status}</strong>`, null, m
+        `status → <strong>${m.verifier_status === 'verified' ? 'AI verified' : m.verifier_status}</strong>`, null, m
       );
       break;
 
