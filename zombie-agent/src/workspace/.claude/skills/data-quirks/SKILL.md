@@ -46,6 +46,14 @@ Two canonical views ship with the schema (per `FED/CLAUDE.md` and
   the F-1 ref_number-collision problem, so it is the safer-by-default choice.
 - `fed.vw_agreement_originals` — `is_amendment = false` only. Use when you
   want the initial commitment.
+- `fed.vw_grants_decoded` — joins `fed.recipient_type_lookup`,
+  `fed.agreement_type_lookup`, `fed.province_lookup`, `fed.country_lookup`
+  so `recipient_type_name`, `agreement_type_name`, `province_name`, etc.
+  come back as readable strings. Useful when rendering a dossier or a
+  per-entity timeline; do NOT use it for cross-amendment aggregation
+  (it sits on the raw base table — apply `vw_agreement_current`'s
+  DISTINCT ON pattern if you need a per-agreement aggregate AND
+  decoded labels).
 
 ```sql
 -- Initial commitment (originals)
@@ -55,7 +63,12 @@ SELECT SUM(agreement_value) FROM fed.vw_agreement_current;
 ```
 
 If for some reason a view is unavailable in your environment, the F-1-safe
-inline equivalent is:
+inline equivalent below mirrors `fed.vw_agreement_current` exactly. **The
+ORDER BY here MUST match the view's definition at
+`FED/scripts/01-migrate.js:270-307` byte-for-byte** — a different
+priority of `amendment_number` vs `amendment_date` will pick a different
+"latest" row when a publisher anomaly disagrees, and the inline path will
+disagree with the view's totals.
 
 ```sql
 WITH agreement_current AS (
@@ -68,10 +81,9 @@ WITH agreement_current AS (
   ORDER BY
     ref_number,
     COALESCE(recipient_business_number, recipient_legal_name, _id::text),
-    amendment_date  DESC NULLS LAST,
-    CASE WHEN amendment_number ~ '^[0-9]+$'
-         THEN amendment_number::int
-         ELSE -1 END DESC,
+    NULLIF(regexp_replace(amendment_number, '\D', '', 'g'), '')::int
+      DESC NULLS LAST,
+    amendment_date DESC NULLS LAST,
     _id DESC
 )
 SELECT ... FROM agreement_current ...;

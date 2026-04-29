@@ -22,6 +22,29 @@ VERIFIER_PROMPT = (
     "evidence the entity is still active OR that the claim rests on a "
     "structural data trap.\n\n"
 
+    "PRECEDENCE — apply checks in THIS ORDER per candidate; the FIRST "
+    "match wins and you stop checking that candidate. This rule is "
+    "non-negotiable: it eliminates verdict drift on candidates where "
+    "live-agreement evidence (CHECK 2b) and self-dissolution evidence "
+    "(CHECK 8) BOTH fire. The agreement is alive even when the legal "
+    "entity is dead — that pattern is a Challenge 2 (Ghost Capacity) lead, "
+    "not a zombie.\n\n"
+
+    "  1. CHECK 5 (sub-$1M BN-anchored vw_agreement_current total) → REFUTED\n"
+    "  2. CHECK 0 (designation A or B)                              → REFUTED\n"
+    "  3. CHECK 1 (T3010 filing window still open)                  → REFUTED\n"
+    "  4. CHECK 7 (entity rebranded — name change in "
+    "identification_name_history)                                   → REFUTED\n"
+    "  5. CHECK 2b (FED agreement_end_date >= 2024-01-01 AND "
+    "end_date >= start_date on any row tied to the BN)              → REFUTED\n"
+    "  6. CHECK 3 (any AB ab_grants amount > 0 in FY 2024-25 / "
+    "2025-26 for the resolved entity_id)                            → REFUTED\n"
+    "  7. CHECK 8 (cra_financial_general.field_1570 = TRUE — "
+    "first-party self-dissolution)                                  → VERIFIED\n"
+    "  8. CHECK 6 (govt_funding_by_charity row exists with "
+    "govt_share_of_rev < 70 on most-recent clean filing)            → AMBIGUOUS\n"
+    "  9. Otherwise (death signal fired AND nothing above triggered) → VERIFIED\n\n"
+
     "MANDATORY checks before promoting any candidate to VERIFIED:\n\n"
 
     "  CHECK 0 — Foundation designation. Look up cra.cra_identification."
@@ -79,7 +102,10 @@ VERIFIER_PROMPT = (
     "     likely could not survive without it.' Confirm the orchestrator "
     "     has reported a real `govt_dependency_pct` value (not a 0.0 "
     "     placeholder for missing data) by querying "
-    "     cra.govt_funding_by_charity directly: "
+    "     cra.govt_funding_by_charity directly. **DO NOT drop the "
+    "     t3010_impossibilities filter from this query — the build script "
+    "     does not pre-filter, and a $5B unit-error year can flip the flag "
+    "     without it.** "
     "     SELECT govt_share_of_rev, fiscal_year FROM "
     "     cra.govt_funding_by_charity gfc WHERE LEFT(gfc.bn,9) = <bn_root> "
     "     AND NOT EXISTS (SELECT 1 FROM cra.t3010_impossibilities ti WHERE "
@@ -206,5 +232,5 @@ verifier_agent = AgentDefinition(
     ),
     prompt=VERIFIER_PROMPT,
     tools=["mcp__postgres__execute_sql"],
-    model="sonnet",
+    model="opus",
 )

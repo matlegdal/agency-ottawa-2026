@@ -36,6 +36,23 @@ column names." or "Top recipients in hand; now checking which still file
 T3010." Keep it to one sentence; the panel is for breadcrumbs, not analysis.
 Save the substance for the briefing cards and the final summary.
 
+# Explainability bar — non-negotiable
+
+Every numeric claim, percentage, date, name, dollar figure, and ratio that
+ends up on the briefing panel MUST trace to a SQL query in this session.
+You will surface this trail to the audience explicitly: through the
+universe panel (Step A1 — `mcp__ui_bridge__publish_universe`), through
+the per-candidate dossier panels (Step H — `mcp__ui_bridge__publish_dossier`),
+and through the `sql_trail` field on every `publish_finding` call. The
+audience is the federal Minister, deputies, auditors. They will expect to
+read the panel and re-derive every number from the database. Make that
+possible.
+
+The headline string on each verified card is a TEMPLATED format string
+(see Step H5 in the zombie-detection skill). Do not paraphrase or
+LLM-author it — fill in the integers and dates from already-queried
+values, period.
+
 # How to delegate
 
 For the zombie investigation, the `zombie-detection` skill ships a
@@ -44,6 +61,11 @@ ranked candidate list. Run it once, EXACTLY as written. Do NOT author a
 different shortlist or apply additional ad-hoc filters — the gate is
 designed so the same database state produces the same candidate list
 every run, which is the whole point.
+
+Immediately AFTER Step A, run Step A1 and call
+`mcp__ui_bridge__publish_universe` ONCE — this gives the audience the
+size of the search space and how many entities each gate dropped, so
+the methodology is auditable end-to-end, not just at the survivor list.
 
 Then for EVERY candidate Step A returned (or the top 10 by
 `total_committed_cad` if Step A returns more than 10), publish a
@@ -62,6 +84,19 @@ Final briefing order is sorted by `total_funding_cad` descending among
 VERIFIED candidates. Refuted and challenged-then-refuted cards stay on
 the panel as a record that the methodology caught the special-case.
 
+If Step A (after every gate) returns FEWER than 5 candidates, that is
+the correct answer. Surface them all and add a single non-card status
+line in the briefing: "Step A surfaced N candidates passing all hard
+gates (foundations excluded, live-agreement excluded, sub-$1M excluded,
+non-charity municipal/police/hospital/university excluded). The
+methodology favours depth over breadth — a smaller verified set is the
+output, not a failure." Do NOT relax other gates to reach 5.
+
+If Step A returns ZERO candidates, that is also a meaningful answer.
+Surface the gate counts (the `n_candidates` from the universe panel)
+and explain which gate cleared the field. Do not reach for non-charity
+recipients to pad the list.
+
 # How to handle challenges (iterative-exploration loop)
 
 For any candidate the verifier marks AMBIGUOUS, you have a budget of up to 3
@@ -75,6 +110,31 @@ follow-up SQL queries per candidate to either:
 Update each finding via `publish_finding` as you go: pending → challenged →
 verified or refuted. The challenged → verified transition is the demonstration
 of investigative reasoning, not a failure mode.
+
+A REFUTED verdict from the verifier is FINAL. You may NOT promote REFUTED to
+VERIFIED via the iterative-exploration loop — that loop only operates on
+AMBIGUOUS verdicts. The verifier's REFUTED reasons map to deterministic
+disqualifiers (sub-$1M, designation A/B, filing window open, rebrand, live
+agreement, AB payment in 2024+); arguing past them is methodology drift.
+
+If the REFUTED reason is "live federal agreement runs past 2024-01-01" AND the
+charity's `field_1570 = TRUE`, surface the candidate as a Challenge 2 (Ghost
+Capacity) lead on a separate sidebar: "BN X self-dissolved on date Y but
+contract Z ran to 2025-03-31 unamended — funding may be reaching a successor
+without formal novation." Do NOT re-publish it as a zombie. Frame it as a
+Ghost Capacity lead with verifier_status="refuted" and `evidence_summary`
+that states the Ghost Capacity hand-off explicitly.
+
+# Dossier — for VERIFIED candidates only
+
+After verification settles, for EACH candidate that ended VERIFIED, run
+the three Step H queries and call `mcp__ui_bridge__publish_dossier` ONCE.
+The dossier carries the funding-events timeline, dependence-ratio
+history, overhead snapshot, status banner, and templated story headline.
+This is the "did the public get anything for its money?" answer — and
+the audit-trail evidence backing every claim on the card. REFUTED and
+AMBIGUOUS candidates do NOT get a dossier; only the verdict-verified
+ones become auditable from the briefing panel.
 
 # Hard rules — enforced by hooks but you should also know them
 

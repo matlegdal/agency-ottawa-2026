@@ -74,6 +74,8 @@ _ORCHESTRATOR_TOOLS = [
     "mcp__postgres__list_objects",
     "mcp__postgres__get_object_details",
     "mcp__ui_bridge__publish_finding",
+    "mcp__ui_bridge__publish_universe",
+    "mcp__ui_bridge__publish_dossier",
 ]
 
 
@@ -89,6 +91,8 @@ _TOOL_DISPLAY: dict[str, tuple[str, str]] = {
     "mcp__postgres__list_objects": ("🗄️", "List objects"),
     "mcp__postgres__get_object_details": ("🗄️", "Object details"),
     "mcp__ui_bridge__publish_finding": ("📌", "Finding"),
+    "mcp__ui_bridge__publish_universe": ("🌐", "Universe"),
+    "mcp__ui_bridge__publish_dossier": ("📂", "Dossier"),
 }
 
 
@@ -98,7 +102,7 @@ def build_options() -> ClaudeAgentOptions:
     return ClaudeAgentOptions(
         cwd=str(WORKSPACE_DIR),
         setting_sources=["project"],  # required to load .claude/skills/
-        model="claude-sonnet-4-6",
+        model="claude-opus-4-7",
         system_prompt=SYSTEM_PROMPT,
         allowed_tools=_ORCHESTRATOR_TOOLS,
         mcp_servers={
@@ -179,6 +183,12 @@ def _summarize_tool_input(name: str, tool_input: Any) -> str:
         ent = tool_input.get("entity_name", "?")
         st = tool_input.get("verifier_status", "?")
         return f"{ent} ({st})"
+    if name == "mcp__ui_bridge__publish_universe":
+        n = tool_input.get("n_final_candidates", "?")
+        u = tool_input.get("n_universe_pre_gate", "?")
+        return f"{n} from {u} pre-gate"
+    if name == "mcp__ui_bridge__publish_dossier":
+        return f"BN {tool_input.get('bn', '?')}"
     if name == "mcp__postgres__execute_sql":
         sql = tool_input.get("sql") or ""
         # Mirror the safe_sql_hook's "first meaningful line" treatment.
