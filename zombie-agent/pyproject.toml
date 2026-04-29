@@ -2,7 +2,7 @@
 name = "zombie-agent"
 version = "0.1.0"
 description = "Agentic system for the Zombie Recipients challenge (AI For Accountability Hackathon 2026)"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 authors = [{ name = "Hackathon Team" }]
 
 dependencies = [

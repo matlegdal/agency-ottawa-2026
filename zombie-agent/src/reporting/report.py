@@ -6,6 +6,7 @@ page-breaks inside cards.
 """
 
 import html
+import json
 import re
 from typing import Any
 
@@ -104,6 +105,24 @@ def _table(headers: list[str], rows: list[list[Any]]) -> str:
     )
 
 
+def _coerce_json(v: Any, expected: type = list) -> Any:
+    """Parse v if it is a JSON string, otherwise return as-is.
+
+    The agent sometimes serialises list/dict fields as JSON strings instead of
+    native objects. Falls back to an empty instance of expected on failure.
+    """
+    if isinstance(v, expected):
+        return v
+    if isinstance(v, str):
+        try:
+            parsed = json.loads(v)
+            if isinstance(parsed, expected):
+                return parsed
+        except (ValueError, TypeError):
+            pass
+    return expected()
+
+
 def _coerce_trail(v: Any) -> list:
     """Normalise a sql_trail value to a proper Python list.
 
@@ -177,7 +196,7 @@ def _verified_card(finding: dict, dossier: dict | None) -> str:
         death_text = _e(dossier.get("death_event_text", ""))
         sql_trail_dossier = _coerce_trail(dossier.get("sql_trail", []))
 
-        fe = dossier.get("funding_events") or []
+        fe = _coerce_json(dossier.get("funding_events") or [], list)
         if fe:
             fe_rows = [
                 [
@@ -194,7 +213,7 @@ def _verified_card(finding: dict, dossier: dict | None) -> str:
                 ["Year", "Dept", "Program", "Amount", "Start", "End"], fe_rows
             )
 
-        dh = dossier.get("dependence_history") or []
+        dh = _coerce_json(dossier.get("dependence_history") or [], list)
         if dh:
             dh_rows = [
                 [
@@ -209,7 +228,7 @@ def _verified_card(finding: dict, dossier: dict | None) -> str:
                 ["Fiscal Year", "Govt Share %", "Govt CAD", "Total Revenue"], dh_rows
             )
 
-        oh = dossier.get("overhead_snapshot") or {}
+        oh = _coerce_json(dossier.get("overhead_snapshot") or {}, dict)
         if oh:
             overhead_block = (
                 _sub_header("Overhead Snapshot")
@@ -469,16 +488,18 @@ def _executive_brief(findings: dict, universe: dict) -> str:
     n_refuted = counts["refuted"]
     n_final = universe.get("n_final_candidates") if universe else None
 
+    lead_verb = "lead was" if n_verified == 1 else "leads were"
     verified_line = (
-        f"<strong>{n_verified} {"lead was" if n_verified == 1 else "leads were"} independently "
+        f"<strong>{n_verified} {lead_verb} independently "
         f"verified</strong>, representing a combined {_fmt_cad(verified_funding)} in committed "
         f"federal funding to organizations that no longer appear active on the public record."
         if n_verified > 0
         else "No leads have been independently verified yet."
     )
 
+    cand_verb = "candidate was" if n_refuted == 1 else "candidates were"
     refuted_line = (
-        f" {n_refuted} {"candidate was" if n_refuted == 1 else "candidates were"} correctly "
+        f" {n_refuted} {cand_verb} correctly "
         f"excluded by the methodology (public/private foundations, live agreements, or open "
         f"T3010 filing windows) — these exclusions are the methodology working as intended, "
         f"not failures."
@@ -486,8 +507,9 @@ def _executive_brief(findings: dict, universe: dict) -> str:
         else ""
     )
 
+    cand_plural = "" if (n_final or 0) == 1 else "s"
     funnel_line = (
-        f" The search space covered {n_final} final candidate{"s" if (n_final or 0) != 1 else ""} "
+        f" The search space covered {n_final} final candidate{cand_plural} "
         f"after passing all hard gates."
         if n_final is not None
         else ""
