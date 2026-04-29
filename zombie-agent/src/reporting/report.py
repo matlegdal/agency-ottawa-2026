@@ -34,6 +34,15 @@ def _fmt_pct(v: Any) -> str:
         return "N/A"
 
 
+_BANKRUPTCY_DISCLOSURE = (
+    '<div style="margin-top:14px;padding:8px 12px;background:#F9FAFB;border:1px solid #E5E7EB;'
+    'border-radius:6px;font-size:11px;color:#9CA3AF;line-height:1.5;">'
+    "<strong>Bankruptcy registry coverage:</strong> not in this dataset. Downstream bankruptcies "
+    "typically appear as “dissolved” / “struck” events in the Alberta non-profit "
+    "registry or as T3010 self-dissolution (field_1570&nbsp;=&nbsp;TRUE), both of which are observable."
+    "</div>"
+)
+
 _STATUS_COLOURS = {
     "verified": ("#059669", "#D1FAE5", "#065F46"),
     "challenged": ("#7C3AED", "#EDE9FE", "#4C1D95"),
@@ -94,6 +103,29 @@ def _table(headers: list[str], rows: list[list[Any]]) -> str:
     )
 
 
+def _coerce_trail(v: Any) -> list:
+    """Normalise a sql_trail value to a proper Python list.
+
+    The agent should pass a list, but sometimes emits a semicolon-joined
+    string instead. Calling list() on a string produces individual characters,
+    so we handle both cases explicitly.
+    """
+    if isinstance(v, list):
+        return v
+    if isinstance(v, str) and v.strip():
+        # Split on semicolons or newlines — common join separators from the agent
+        parts = [p.strip() for sep in (";", "\n") for p in v.split(sep)]
+        # De-dup while preserving order, drop empties
+        seen: set = set()
+        result = []
+        for p in parts:
+            if p and p not in seen:
+                seen.add(p)
+                result.append(p)
+        return result
+    return []
+
+
 def _clean_trail_item(step: Any) -> str:
     """Normalise a sql_trail entry to a display string.
 
@@ -108,7 +140,7 @@ def _clean_trail_item(step: Any) -> str:
 
 
 def _reasoning_chain(sql_trail: Any) -> str:
-    raw = sql_trail if isinstance(sql_trail, list) else []
+    raw = _coerce_trail(sql_trail)
     items = [_clean_trail_item(s) for s in raw if s]
     if not items:
         return ""
@@ -131,7 +163,7 @@ def _verified_card(finding: dict, dossier: dict | None) -> str:
     dep_pct = _fmt_pct(finding.get("govt_dependency_pct"))
     evidence = _e(finding.get("evidence_summary", ""))
     verifier_notes = _e(finding.get("verifier_notes", ""))
-    sql_trail_finding = finding.get("sql_trail", [])
+    sql_trail_finding = _coerce_trail(finding.get("sql_trail", []))
 
     headline = ""
     death_text = ""
@@ -143,7 +175,7 @@ def _verified_card(finding: dict, dossier: dict | None) -> str:
     if dossier:
         headline = _e(dossier.get("headline", ""))
         death_text = _e(dossier.get("death_event_text", ""))
-        sql_trail_dossier = dossier.get("sql_trail", [])
+        sql_trail_dossier = _coerce_trail(dossier.get("sql_trail", []))
 
         fe = dossier.get("funding_events") or []
         if fe:
@@ -194,13 +226,18 @@ def _verified_card(finding: dict, dossier: dict | None) -> str:
                 )
             )
 
-    combined_trail = list(sql_trail_dossier) + [
+    combined_trail = sql_trail_dossier + [
         s for s in sql_trail_finding if s not in sql_trail_dossier
     ]
 
     title_line = (
-        f'<div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:6px;line-height:1.3;">'
-        f"{headline if headline else name}</div>"
+        f'<div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:4px;line-height:1.3;">'
+        f"{name}</div>"
+        + (
+            f'<div style="font-size:13px;color:#374151;font-style:italic;margin-bottom:8px;line-height:1.4;">'
+            f"{headline}</div>"
+            if headline else ""
+        )
     )
     meta_line = (
         f'<div style="font-size:12px;color:#6B7280;margin-bottom:12px;display:flex;'
@@ -244,6 +281,7 @@ def _verified_card(finding: dict, dossier: dict | None) -> str:
         + dep_table
         + overhead_block
         + _reasoning_chain(combined_trail)
+        + _BANKRUPTCY_DISCLOSURE
         + "</div>"
     )
 
@@ -253,15 +291,17 @@ def _challenged_card(finding: dict) -> str:
     bn = _e(finding.get("bn", ""))
     status = finding.get("verifier_status", "challenged")
     funding = _fmt_cad(finding.get("total_funding_cad"))
+    last_year = _e(finding.get("last_known_year", ""))
     dep_pct = _fmt_pct(finding.get("govt_dependency_pct"))
     evidence = _e(finding.get("evidence_summary", ""))
     verifier_notes = _e(finding.get("verifier_notes", ""))
-    sql_trail = finding.get("sql_trail", [])
+    sql_trail = _coerce_trail(finding.get("sql_trail", []))
 
     meta_line = (
         f'<div style="font-size:12px;color:#6B7280;margin-bottom:12px;display:flex;'
         f'align-items:center;gap:12px;flex-wrap:wrap;">'
         f'<span>BN: {bn}</span>'
+        f'{"<span>Last active: " + last_year + "</span>" if last_year else ""}'
         f'<span style="font-weight:700;color:#DC2626;">{funding}</span>'
         f'<span>Govt dependency: {dep_pct}</span>'
         f"{_pill(status)}</div>"
@@ -286,6 +326,7 @@ def _challenged_card(finding: dict) -> str:
         + evidence_block
         + verifier_block
         + _reasoning_chain(sql_trail)
+        + _BANKRUPTCY_DISCLOSURE
         + "</div>"
     )
 

@@ -79,6 +79,8 @@ async def api_snapshot() -> dict:
     return {
         "question":    s.question,
         "findings":    s.findings,    # bn → latest finding payload
+        "dossiers":    s.dossiers,    # bn → dossier payload (funding tables, sparklines)
+        "universe":    s.universe,    # methodology funnel data
         "run_meta":    s.run_meta,
         "is_complete": s.is_complete,
         "is_running":  run_manager.is_running(),

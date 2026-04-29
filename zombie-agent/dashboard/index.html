@@ -56,11 +56,6 @@
     .logo span { color: var(--bad); }
     .logo-sub { font-size: 10px; color: var(--muted2); letter-spacing: .07em; text-transform: uppercase; font-weight: 500; }
     .header-right { display: flex; align-items: center; gap: 16px; }
-    .timer {
-      font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 500;
-      background: var(--panel2); border: 1px solid var(--line); border-radius: 6px;
-      padding: 3px 10px; min-width: 56px; text-align: center;
-    }
     .report-btn {
       padding: 5px 13px; border-radius: 6px; font-size: 12px; font-weight: 600;
       background: var(--accent); color: #fff; text-decoration: none; opacity: 0.35;
@@ -68,7 +63,7 @@
       white-space: nowrap;
     }
     .report-btn.ready { opacity: 1; pointer-events: auto; }
-    .stop-btn {
+    .run-toggle {
       display: flex; align-items: center; justify-content: center;
       width: 30px; height: 30px; border-radius: 6px; flex-shrink: 0;
       border: 1px solid var(--line); background: var(--panel2);
@@ -76,9 +71,9 @@
       transition: background .15s, color .15s, border-color .15s;
       font-family: inherit;
     }
-    .stop-btn:not(:disabled):hover { background: #FEE2E2; color: var(--bad); border-color: #FCA5A5; }
-    .stop-btn.running { color: var(--bad); border-color: #FCA5A5; background: #FFF1F2; }
-    .stop-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .run-toggle:hover { background: #EFF6FF; color: var(--accent); border-color: #BFDBFE; }
+    .run-toggle.running { color: var(--bad); border-color: #FCA5A5; background: #FFF1F2; }
+    .run-toggle.running:hover { background: #FEE2E2; border-color: #F87171; }
     .conn { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 7px; font-weight: 500; }
     .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--refuted); flex-shrink: 0; }
     .dot.live { background: var(--good); animation: dot-pulse 2s ease-in-out infinite; }
@@ -350,6 +345,11 @@
       margin: 8px 0 2px; line-height: 1.35;
     }
     .card-dossier { margin-top: 10px; border-top: 1px solid var(--line2); padding-top: 10px; }
+    .card-disclosure {
+      margin-top: 10px; padding: 6px 10px;
+      font-size: 10px; color: var(--muted2); font-style: italic; line-height: 1.5;
+      border-top: 1px dashed var(--line);
+    }
     .dossier-section { margin-bottom: 10px; }
     .dossier-section:last-child { margin-bottom: 0; }
     .ds-title {
@@ -475,10 +475,13 @@
     }
     .sk { height: 9px; border-radius: 5px; background: var(--line); }
     .sk + .sk { margin-top: 7px; }
-    .sk.w-70 { width: 70%; }
-    .sk.w-40 { width: 40%; }
-    .sk.w-85 { width: 85%; }
     .sk.w-60 { width: 60%; }
+    .sk.w-70 { width: 70%; }
+    .sk.w-75 { width: 75%; }
+    .sk.w-80 { width: 80%; }
+    .sk.w-85 { width: 85%; }
+    .sk.w-90 { width: 90%; }
+    .sk.w-40 { width: 40%; }
     .sk.tall  { height: 20px; width: 48%; margin-top: 12px; }
     .sk.spacer{ margin-top: 12px; }
 
@@ -525,7 +528,6 @@
       header { padding: 0 14px; height: 56px; }
       .logo { font-size: 12px; letter-spacing: .04em; }
       .logo-sub { display: none; }
-      .timer { min-width: 44px; padding: 3px 8px; font-size: 11px; }
       .conn { gap: 6px; font-size: 11px; }
       #conn-label { display: none; }   /* show just the dot on very small screens */
 
@@ -642,11 +644,8 @@
     </div>
     <div class="header-right">
       <a href="/report" target="_blank" id="report-btn" class="report-btn">Generate Report</a>
-      <div class="timer" id="timer">–</div>
-      <button class="stop-btn" id="stop-btn" title="Stop investigation" disabled>
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-          <rect x="1" y="1" width="10" height="10" rx="2"/>
-        </svg>
+      <button class="run-toggle" id="run-toggle" title="Start investigation">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M3 2l8 4-8 4V2z"/></svg>
       </button>
       <button class="feed-toggle" id="feed-toggle" title="Live Activity">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round">
@@ -744,7 +743,7 @@
           <div class="splash-desc">Start the agent to surface zombie recipients — organizations that received federal funding but are no longer active or registered.</div>
           <div class="splash-badge">
             <span class="splash-badge-dot"></span>
-            Agent idle &mdash; awaiting run
+            Press &#9654; to start an investigation
           </div>
         </div>
       </div>
@@ -856,23 +855,9 @@ function setText(el, val) {
   if (el.textContent !== s) { el.textContent = s; flash(el); }
 }
 
-// ── Timer ──────────────────────────────────────────────────────────
-const timerEl = document.getElementById('timer');
-
-function startTimer() {
-  runStart = Date.now();
-  function tick() {
-    const s = ((Date.now() - runStart) / 1000).toFixed(0);
-    timerEl.textContent = `${s}s`;
-    timerRaf = requestAnimationFrame(tick);
-  }
-  timerRaf = requestAnimationFrame(tick);
-}
-
-function stopTimer() {
-  if (timerRaf) cancelAnimationFrame(timerRaf);
-  timerRaf = null;
-}
+// ── Timer (removed) ───────────────────────────────────────────────
+function startTimer() {}
+function stopTimer()  {}
 
 // ── Filter tabs ────────────────────────────────────────────────────
 document.getElementById('tab-bar').addEventListener('click', e => {
@@ -987,8 +972,8 @@ function renderSparkline(rows) {
   const yMax = Math.max(100, ...ys);
   const sx = v => xMax === xMin ? W/2 : pad + (v - xMin) / (xMax - xMin) * (W - 2*pad);
   const sy = v => H - pad - (v / yMax) * (H - 2*pad);
-  const pts  = rows.map(r => `${sx(r.fiscal_year).toFixed(1)},${sy(Number(r.govt_share_pct)||0).toFixed(1)}`).join(' ');
-  const dots = rows.map(r => `<circle class="spark-dot" cx="${sx(r.fiscal_year)}" cy="${sy(Number(r.govt_share_pct)||0)}" r="2.5"/>`).join('');
+  const pts  = rows.map(r => `${sx(Number(r.fiscal_year)).toFixed(1)},${sy(Number(r.govt_share_pct)||0).toFixed(1)}`).join(' ');
+  const dots = rows.map(r => `<circle class="spark-dot" cx="${sx(Number(r.fiscal_year))}" cy="${sy(Number(r.govt_share_pct)||0)}" r="2.5"/>`).join('');
   const thY  = sy(70);
   const last = rows[rows.length - 1];
   return `<svg class="sparkline" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
@@ -1101,6 +1086,7 @@ function renderCard(el, m, dossier) {
     <div class="card-evidence">${esc(m.evidence_summary || '')}</div>
     ${verdict}
     ${dosHTML ? `<div class="card-dossier">${dosHTML}</div>` : ''}
+    <div class="card-disclosure">Bankruptcy registry coverage: not in this dataset. Downstream bankruptcies typically appear as &ldquo;dissolved&rdquo; / &ldquo;struck&rdquo; events in the Alberta non-profit registry or as T3010 self-dissolution (field_1570&nbsp;=&nbsp;TRUE), both of which are observable.</div>
   `;
 }
 
@@ -1300,7 +1286,6 @@ function handle(m) {
 
     case 'result':
       stopTimer();
-      if (runStart) timerEl.textContent = `${((Date.now()-runStart)/1000).toFixed(1)}s`;
       feedItem('result', `&#x25CF; Run complete`,
         [m.num_turns != null ? `${m.num_turns} turns` : '', m.total_cost_usd != null ? `$${m.total_cost_usd.toFixed(4)}` : '']
           .filter(Boolean).join(' · '), null, m);
@@ -1358,19 +1343,26 @@ window.addEventListener('resize', () => {
   if (window.innerWidth > 768) closeFeed();
 });
 
-// ── Stop button ────────────────────────────────────────────────────
-const stopBtn = document.getElementById('stop-btn');
+// ── Run controls ───────────────────────────────────────────────────
+const runToggle = document.getElementById('run-toggle');
+
+const _ICON_PLAY = `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M3 2l8 4-8 4V2z"/></svg>`;
+const _ICON_STOP = `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="1" y="1" width="10" height="10" rx="2"/></svg>`;
 
 function setRunning(running) {
-  stopBtn.disabled = !running;
-  if (running) stopBtn.classList.add('running');
-  else stopBtn.classList.remove('running');
+  runToggle.classList.toggle('running', running);
+  runToggle.title = running ? 'Stop investigation' : 'Start investigation';
+  runToggle.innerHTML = running ? _ICON_STOP : _ICON_PLAY;
 }
 
-stopBtn.addEventListener('click', async () => {
-  stopBtn.disabled = true;
-  try { await fetch('/api/stop', { method: 'POST' }); }
-  catch { /**/ }
+runToggle.addEventListener('click', async () => {
+  if (runToggle.classList.contains('running')) {
+    try { await fetch('/api/stop', { method: 'POST' }); }
+    catch { /**/ }
+  } else {
+    try { await fetch('/api/run', { method: 'POST' }); }
+    catch { /**/ }
+  }
 });
 
 // ── WebSocket ──────────────────────────────────────────────────────
@@ -1395,14 +1387,24 @@ async function applySnapshot() {
   // Reset display without starting the timer (avoids the startTimer() side-effect
   // of handle('run_start') — we manage timer state explicitly below)
   Object.keys(findings).forEach(k => delete findings[k]);
+  Object.keys(dossiers).forEach(k => delete dossiers[k]);
+  universePanel = null;  // grid.innerHTML detaches the node; null so renderUniverse recreates it
   grid.innerHTML = findingsList.length ? '' : skelCards();
   document.getElementById('findings-tbody').innerHTML =
     '<tr class="table-empty"><td colspan="6">No data yet.</td></tr>';
   activeFilter = 'all';
   applyFilter('all');
 
+  // Replay dossiers first so upsertCard can read dossiers[bn] for rich content
+  Object.values(snap.dossiers || {}).forEach(d => attachDossier(d));
+
   // Replay cards — skip feed to avoid flooding it with historical entries
   findingsList.forEach(f => upsertCard(f));
+
+  // Restore universe funnel panel
+  if (snap.universe && Object.keys(snap.universe).length) {
+    renderUniverse(snap.universe);
+  }
 
   // Restore timer / running state
   if (snap.is_running) {
@@ -1412,7 +1414,6 @@ async function applySnapshot() {
     stopTimer();
     setRunning(false);
     if (snap.run_meta?.duration_ms) {
-      timerEl.textContent = `${(snap.run_meta.duration_ms / 1000).toFixed(1)}s`;
     }
   }
 }
@@ -1435,7 +1436,6 @@ function connect() {
   ws.addEventListener('open', async () => {
     dot.classList.add('live');
     label.textContent = 'Live';
-    await triggerRun();    // start run if not already running
     await applySnapshot(); // restore prior cards/KPIs from server state
     ready = true;          // open the gate
     pending.forEach(m => { try { handle(m); } catch { /**/ } });
