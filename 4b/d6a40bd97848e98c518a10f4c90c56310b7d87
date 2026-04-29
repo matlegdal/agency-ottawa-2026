@@ -1,0 +1,41 @@
+LOBBY/.env.example
+  28f87edc23e64bc1 1
+LOBBY/scripts/02-import.js
+  28f87edc23e64bc1 1-197
+LOBBY/scripts/drop.js
+  28f87edc23e64bc1 1-20
+LOBBY/scripts/03-verify.js
+  28f87edc23e64bc1 1-60
+LOBBY/.gitignore
+  28f87edc23e64bc1 1-5
+LOBBY/scripts/01-migrate.js
+  28f87edc23e64bc1 1-20
+LOBBY/lib/db.js
+  28f87edc23e64bc1 1-46
+LOBBY/CLAUDE.md
+  28f87edc23e64bc1 1-111
+LOBBY/sql/01-schema.sql
+  28f87edc23e64bc1 1-165
+LOBBY/package.json
+  28f87edc23e64bc1 1-22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "4bd6a40bd97848e98c518a10f4c90c56310b7d87",
+  "prompts": {
+    "28f87edc23e64bc1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "799948d2-73f7-476e-a3fa-fcb825869e71",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mathieu Léger-Dalcourt",
+      "messages": [],
+      "total_additions": 1185,
+      "total_deletions": 60,
+      "accepted_lines": 648,
+      "overriden_lines": 5
+    }
+  }
+}
