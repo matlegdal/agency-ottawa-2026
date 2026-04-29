@@ -181,10 +181,91 @@ If step 4 returns 0 rows for a charity you expect to match, recompute the norm r
 
 ---
 
-## 10. Optional: higher-recall path (post-hackathon)
+## 10. Match rates by data tier
 
-The 0.5% CRA match rate is a recall ceiling, not a precision problem. To raise recall:
+The norm_name probe is high-precision, low-recall — but recall scales sharply with the dollar tier the agent actually cares about:
 
-1. **Add `lobby_registrations` as a 7th `general.entity_source_links` source.** Then golden records resolve lobby clients to the same `bn_root` as CRA / FED / AB rows. ~2–4 hours of pipeline work — out of scope for the 24h hackathon, in scope for the post-event v3.
-2. **Trigram fuzzy match** on `pg_trgm` (`lr.client_name_en % ci.legal_name` with `similarity > 0.7`). One-line query addition; will introduce noise, so only use as a verifier *alternative-name search* on AMBIGUOUS verdicts, not as the primary join.
-3. **Lobby's `client_org_corp_num_int` → `corp` schema → CRA name.** The federal corporations registry is loaded locally in `corp`. For incorporated charities (a minority, but the high-dollar ones), this gives an ID-based join that beats norm_name. Worth a 30-minute spike if the demo lands on a low-recall candidate set.
+| Universe | Recipients | Match to lobby (norm_name) |
+|---|---:|---:|
+| All FED recipients | 477K | 1.6% |
+| FED ≥ $100K originals | 136K | 3.6% |
+| FED ≥ $1M originals | 30K | 8.3% |
+| FED ≥ $10M originals | 4.7K | **16.8%** |
+| FED non-profit ≥ $1M | 4.4K | **11.0%** |
+| FED for-profit ≥ $1M | 3.8K | 8.7% |
+| **Zombie agent pool** (FED ≥ $500K, last grant pre-2022) | **19.6K** | **3.8% → 737 candidates** |
+| All CRA charities | 87K | 0.5% |
+
+The selection bias works for us: orgs that lobby tend to be the ones receiving large recurring federal money — exactly the demo-relevant pool. 737 candidates with a lobby footprint is more than enough for an agent that picks 3–5.
+
+---
+
+## 11. Higher-recall path: add lobby to `general.entity_source_links` (no LLM)
+
+A second integration path lifts both FED *and* CRA recall by routing lobby through entity resolution. Crucially, **the LLM stage is not required** for this — `08-llm-golden-records.js` only authors `canonical_name`/`aliases` and merges existing golden records; it places zero source links. All 5.2M source links in the system today come from deterministic methods (`bn_anchor`, `exact_name`, `normalized`, `trade_name`, `pipe_split`, `new_entity`, `bn_new`).
+
+### What deterministic-only resolution buys
+
+| Path | Lobby clients resolved to existing golden records |
+|---|---:|
+| Lobby's own `client_name_norm` ↔ `entity_golden_records.norm_name` | **0 / 19,139 (0%)** |
+| `general.norm_name(client_name_en)` ↔ `entity_golden_records.norm_name` | **3,182 / 18,208 (17.5%)** |
+
+Lobby's homegrown normalizer (lowercase, simple regex) is incompatible with `general.norm_name()` (uppercase, strips trade-name tails / bilingual splits / `THE` / etc.). Re-normalizing with the canonical function does most of the work.
+
+### Sketch: `general/scripts/12-resolve-lobby-entities.js`
+
+~150 lines, mirrors the AB pattern in `04-resolve-entities.js`. No Splink, no LLM, idempotent.
+
+```
+Step 1. ALTER TABLE lobby.lobby_registrations  ADD COLUMN gnorm_name TEXT;
+        ALTER TABLE lobby.lobby_communications ADD COLUMN gnorm_name TEXT;
+        UPDATE both: gnorm_name = general.norm_name(client_name_en);
+
+Step 2. INSERT INTO general.entity_resolution_log
+        one row per distinct (gnorm_name, client_org_corp_num)
+        source_schema='lobby', source_table='lobby_registrations'
+        ON CONFLICT DO NOTHING.
+
+Step 3. Three-pass deterministic match:
+        (a) exact_name:  rl.gnorm_name = e.canonical_name (UPPER)
+                         → match_method='exact_name'
+        (b) normalized:  rl.gnorm_name = e.norm_name
+                         → match_method='normalized'
+        (c) leftover:    create new entities, match_method='new_entity',
+                         entity_type='lobby_only'
+
+Step 4. (Optional) trigram fallback (similarity > 0.85), mirrors
+        10-donee-trigram-fallback.js. Adds ~3-5% more matches at
+        small precision cost. ~30 min run.
+
+Step 5. Refresh entity_golden_records for affected entity_ids
+        via 09-build-golden-records.js (no LLM call).
+```
+
+### Verifier becomes one indexed lookup
+
+After resolution, the §3 SQL probe can be replaced by:
+
+```sql
+SELECT lr.*, va.*
+FROM general.entity_source_links esl
+JOIN lobby.lobby_registrations lr
+  ON (esl.source_pk->>'reg_id')::bigint = lr.reg_id
+JOIN lobby.vw_client_activity va ON va.client_name_norm = lr.client_name_norm
+WHERE esl.entity_id = $1 AND esl.source_schema = 'lobby';
+```
+
+No regex per query, no name drift, and the same `entity_id` resolves CRA / FED / AB / lobby in one place.
+
+### What you give up by skipping the LLM
+
+- **Variant unification.** The LLM is what merges "Coca-Cola Ltd / Coca-Cola Refreshments Canada Co." into one golden record. Without re-running it post-lobby, those FED entities and their lobby counterparts attach to *different* golden records.
+- **Trade-name edge cases.** `general.norm_name()` strips most trade-name tails, but the LLM catches cases the regex misses.
+
+For the hackathon, ship the deterministic resolver and accept the variant ceiling. Post-hackathon, re-run `08-llm-golden-records.js` once to merge across the new lobby↔FED gaps.
+
+### Other recall improvements worth considering
+
+1. **Trigram fuzzy match** (`pg_trgm`, `similarity > 0.7`) — useful as a *verifier alternative-name probe* on AMBIGUOUS verdicts, not as the primary join.
+2. **Lobby's `client_org_corp_num_int` → `corp` schema → CRA / FED name.** Federal corporations registry is loaded locally. For incorporated entities (the high-dollar ones), this is an ID-based join that beats name matching. ~30-min spike if the demo lands on a low-recall candidate set.
