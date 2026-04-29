@@ -1,0 +1,4 @@
+# Public Accounts CSVs come with CRLF + UTF-8 BOM. Don't touch line endings —
+# the import script handles them as-is. Treat as binary for diff purposes.
+data/raw/*.csv -text
+data/raw/*.csv binary
