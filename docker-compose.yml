@@ -7,6 +7,6 @@ services:
     environment:
       POSTGRES_PASSWORD: qohash
       POSTGRES_USER: qohash
-      POSTGRES_DB: hackaton
+      POSTGRES_DB: hackathon
     volumes:
       - ./docker/postgres:/docker-entrypoint-initdb.d
