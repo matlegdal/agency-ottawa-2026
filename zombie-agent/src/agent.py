@@ -140,8 +140,13 @@ def build_options() -> ClaudeAgentOptions:
         permission_mode="bypassPermissions",
         # The iterative-exploration loop can run 3 follow-up queries per
         # AMBIGUOUS candidate × ~5 candidates on top of the initial discovery
-        # phase. 60 turns gives comfortable headroom.
-        max_turns=60,
+        # phase. 80 absorbs the two new mandatory CORP/PA probes per
+        # candidate (CHECK 9 / 9b / 10 / 11 / 12 add ~10 verifier turns
+        # across a typical 3–5 candidate set) plus the Ghost Capacity
+        # sidebar emission (~5–10 more turns). v3 anti-pattern #12
+        # prohibits going above 60 to mask wasted turns; this raise is
+        # justified by new functionality, not waste.
+        max_turns=80,
         # Scrub CLAUDECODE / CLAUDE_CODE_ENTRYPOINT so the bundled Claude
         # CLI subprocess doesn't refuse to start when this server is run
         # from inside a Claude Code dev session ("Claude Code cannot be
