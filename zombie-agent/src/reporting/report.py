@@ -223,6 +223,7 @@ def _verified_card(finding: dict, dossier: dict | None) -> str:
             )
 
         dh = _coerce_json(dossier.get("dependence_history") or [], list)
+        dep_table = _sub_header("Govt-share of revenue (CHL 70-80% flag)")
         if dh:
             dh_rows = [
                 [
@@ -233,19 +234,24 @@ def _verified_card(finding: dict, dossier: dict | None) -> str:
                 ]
                 for r in dh
             ]
-            dep_table = _sub_header("Government Dependency History") + _table(
+            dep_table += _table(
                 ["Fiscal Year", "Govt Share %", "Govt CAD", "Total Revenue"], dh_rows
+            )
+        else:
+            dep_table += (
+                '<p style="font-size:12px;color:#9CA3AF;font-style:italic;margin-bottom:4px;">'
+                "No govt-revenue rows in cra.govt_funding_by_charity for this BN "
+                "— CHL’s 70-80% flag does not apply.</p>"
             )
 
         oh = _coerce_json(dossier.get("overhead_snapshot") or {}, dict)
-        if oh:
+        if oh and oh.get("fiscal_year") is not None:
             overhead_block = (
-                _sub_header("Overhead Snapshot")
+                _sub_header(f"Did the public get anything? — FY {oh.get('fiscal_year', '')}")
                 + _table(
-                    ["Fiscal Year", "Overhead %", "Programs CAD", "Admin & Fundraising"],
+                    ["Overhead %", "Programs CAD", "Admin & Fundraising"],
                     [
                         [
-                            oh.get("fiscal_year", ""),
                             _fmt_pct(oh.get("strict_overhead_pct")),
                             _fmt_cad(oh.get("programs_cad")),
                             _fmt_cad(oh.get("admin_fundraising_cad")),

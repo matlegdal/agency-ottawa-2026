@@ -1229,14 +1229,17 @@ function renderDossier(d) {
   }
   const dep = Array.isArray(d.dependence_history) ? d.dependence_history : [];
   if (dep.length) {
-    sections.push(dsSection('Govt-share of revenue', renderSparkline(dep)));
+    sections.push(dsSection('Govt-share of revenue (CHL 70-80% flag)', renderSparkline(dep)));
+  } else {
+    sections.push(dsSection('Govt-share of revenue (CHL 70-80% flag)',
+      '<div class="dependence-empty">No govt-revenue rows in cra.govt_funding_by_charity for this BN — CHL&rsquo;s 70-80% flag does not apply.</div>'));
   }
   const oh = d.overhead_snapshot || {};
   if (oh.fiscal_year != null) {
     const pct  = oh.strict_overhead_pct != null ? Number(oh.strict_overhead_pct).toFixed(1) : '—';
     const prog = oh.programs_cad != null ? `$${Number(oh.programs_cad).toLocaleString(undefined,{maximumFractionDigits:0})}` : '—';
     const ovh  = oh.admin_fundraising_cad != null ? `$${Number(oh.admin_fundraising_cad).toLocaleString(undefined,{maximumFractionDigits:0})}` : '—';
-    sections.push(dsSection(`Overhead — FY ${oh.fiscal_year}`,
+    sections.push(dsSection(`Did the public get anything? — FY ${oh.fiscal_year}`,
       `<div class="overhead-line">Admin + fundraising: <span class="o-pct">${pct}%</span> of revenue (${ovh} overhead vs ${prog} programs).</div>`));
   }
   // CORP timeline (optional — present when Step A matched a corp record)
