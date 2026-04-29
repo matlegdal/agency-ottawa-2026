@@ -12,12 +12,15 @@ The event is designed to:
 Teams will present their work at the end of the day, with selected participants recognized through awards. The event will bring together hyperscalers and leading AI companies, alongside the Minister of Alberta Technology and Innovation and federal, provincial, and territorial ministers and deputy ministers.
 
 1. Zombie Recipients
+
 Which companies and nonprofits received large amounts of public funding and then ceased operations shortly after? Identify entities that went bankrupt, dissolved, or stopped filing within 12 months of receiving funding. Flag entities where public funding makes up more than 70-80% of total revenue, meaning they likely could not survive without it. The question is simple: did the public get anything for its money, or did it fund a disappearing act?
 
 2. Ghost Capacity
+
 Which funded organizations show no evidence of actually being able to deliver what they were funded to do? Look for entities with no employees, no physical presence, and no revenue beyond government transfers, where expenditures flow almost entirely to compensation for a small number of individuals or to further transfers to other entities. These are not zombies. Zombies die. Ghost-capacity entities persist indefinitely. They just never do anything.
 
 3. Funding Loops
+
 Where does money flow in circles between charities, and does it matter? Using CRA T3010 data, identify circular funding patterns: reciprocal gifts, triangular cycles, and longer chains where dollars leave an organization and eventually return to it. Most loops are structurally normal (denominational hierarchies, federated charities, donation platforms). The challenge is distinguishing these from loops that exist to inflate revenue, generate tax receipts, or absorb funds into overhead without delivering charitable programs.
 
 4. Sole Source and Amendment Creep
